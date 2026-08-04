@@ -1,0 +1,36 @@
+# EAS Build Ignore
+# Files/folders to exclude from EAS upload
+
+# Node modules (EAS will install from package.json)
+node_modules/
+
+# Generated native code (EAS will rebuild)
+android/
+ios/
+
+# Git repo
+.git/
+
+# Build artifacts
+dist/
+build/
+.expo/
+web-build/
+
+# Large assets
+playstore-assets/
+*.aab
+*.apk
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+
+# OS files
+.DS_Store
+Thumbs.db
