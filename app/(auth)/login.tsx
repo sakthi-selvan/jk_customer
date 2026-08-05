@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,10 +26,6 @@ export default function LoginScreen() {
 
   const otpRefs = useRef<(TextInput | null)[]>([]);
   const { sendOTP, verifyOTP, otpSent, isLoading, error, clearError, resetOTPState } = useAuthStore();
-
-  useEffect(() => {
-    return () => resetOTPState();
-  }, []);
 
   const handleSendOTP = async () => {
     setPhoneError('');

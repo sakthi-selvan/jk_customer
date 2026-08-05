@@ -9,6 +9,7 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  isInitializing: boolean;
   isLoading: boolean;
   error: string | null;
 
@@ -45,7 +46,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
     accessToken: null,
     refreshToken: null,
     isAuthenticated: false,
-    isLoading: true,
+    isInitializing: true,
+    isLoading: false,
     error: null,
     otpSent: false,
     otpPhone: null,
@@ -150,7 +152,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     loadUser: async () => {
       try {
-        set({ isLoading: true });
+        set({ isInitializing: true });
         const token = await storage.getItem('access_token');
         const userStr = await storage.getItem('user');
 
@@ -161,14 +163,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
             user,
             accessToken: token,
             isAuthenticated: true,
-            isLoading: false,
+            isInitializing: false,
           });
         } else {
-          set({ isLoading: false });
+          set({ isInitializing: false });
         }
       } catch (error) {
         console.log('⚠️  Storage error during load:', error);
-        set({ isLoading: false });
+        set({ isInitializing: false });
       }
     },
 

@@ -32,6 +32,10 @@ import { EnhancedRide, SavedPlaces } from '../../types/enhanced';
 
 const { width, height } = Dimensions.get('window');
 
+/** Floating location card sits below safe area; chips sit below the card. */
+const LOCATION_CARD_TOP = 12;
+const LOCATION_CARD_HEIGHT = 56;
+
 interface MapHomeScreenProps {
   onBookRide: () => void;
 }
@@ -297,6 +301,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const showActiveRideSheet = activeRide && ['pending', 'accepted', 'started'].includes(activeRide.status);
 
   const isTrackingRide = activeRide && ['pending', 'accepted', 'started'].includes(activeRide.status);
+  const fleetChipBarTop = LOCATION_CARD_TOP + LOCATION_CARD_HEIGHT + Spacing.sm;
 
   return (
     <View style={styles.container}>
@@ -322,6 +327,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
           vehicleFilter={fleetFilter}
           onVehicleFilterChange={setFleetFilter}
           showFilterChips
+          chipBarTop={fleetChipBarTop}
         />
       )}
 
@@ -329,7 +335,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
       <TouchableOpacity
         activeOpacity={1}
         onPress={activateFloatingBar}
-        style={[styles.floatingLocationCard, { top: insets.top + 12 }]}
+        style={[styles.floatingLocationCard, { top: insets.top + LOCATION_CARD_TOP }]}
       >
         <Animated.View style={[styles.floatingBarInner, { opacity: floatingBarOpacity }]}>
           <TouchableOpacity style={styles.menuButton} onPress={() => { activateFloatingBar(); toggleMenu(); }} disabled={!floatingBarActive}>

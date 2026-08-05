@@ -35,6 +35,8 @@ interface FleetMapProps {
   onVehicleFilterChange?: (filter: FleetCategory) => void;
   womenOnly?: boolean;
   showFilterChips?: boolean;
+  /** Distance from top of map to filter chips (avoids overlapping header UI) */
+  chipBarTop?: number;
 }
 
 /**
@@ -49,6 +51,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   onVehicleFilterChange,
   womenOnly = false,
   showFilterChips = true,
+  chipBarTop = 8,
 }) => {
   const cameraRef = useRef<Camera>(null);
   const [localFilter, setLocalFilter] = useState<FleetCategory>('all');
@@ -125,7 +128,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
       </MapView>
 
       {showFilterChips && (
-        <View style={styles.chipBar}>
+        <View style={[styles.chipBar, { top: chipBarTop }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {FLEET_FILTERS.map((f) => {
               const active = filter === f.id;
@@ -156,7 +159,6 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   chipBar: {
     position: 'absolute',
-    top: 8,
     left: 0,
     right: 0,
   },

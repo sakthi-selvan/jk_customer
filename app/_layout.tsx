@@ -13,23 +13,23 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const { isAuthenticated, isLoading, loadUser } = useAuthStore();
+  const { isAuthenticated, isInitializing, loadUser } = useAuthStore();
 
   useEffect(() => {
     loadUser();
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
-        router.replace('/');
-      } else {
-        router.replace('/(auth)/login');
-      }
-    }
-  }, [isAuthenticated, isLoading]);
+    if (isInitializing) return;
 
-  if (isLoading) {
+    if (isAuthenticated) {
+      router.replace('/');
+    } else {
+      router.replace('/(auth)/login');
+    }
+  }, [isAuthenticated, isInitializing]);
+
+  if (isInitializing) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
         <ActivityIndicator size="large" color={Colors.primary} />
