@@ -15,7 +15,6 @@ export enum VehicleCategory {
   MINI = "mini",
   SEDAN = "sedan",
   SUV = "suv",
-  PREMIUM = "premium"
 }
 
 export interface VehicleCategoryData {
@@ -26,6 +25,11 @@ export interface VehicleCategoryData {
   seater_capacity: number;
   base_fare: number;
   per_km_rate: number;
+  hourly_rate?: number;
+  platform_fee?: number;
+  night_surcharge_percent?: number;
+  gst_percent?: number;
+  waiting_charge_per_min?: number;
   example_vehicles: string[];
   features: string[];
   icon_name: string;

@@ -58,14 +58,6 @@ const VEHICLE_OPTIONS = [
     description: 'Spacious vehicles',
     color: '#FF9800',
   },
-  {
-    type: VehicleCategory.PREMIUM,
-    name: 'Premium',
-    icon: 'car-sport',
-    capacity: '4 seats',
-    description: 'Luxury experience',
-    color: '#9C27B0',
-  },
 ];
 
 export default function BookRideCompleteScreen() {

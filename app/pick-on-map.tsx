@@ -9,7 +9,9 @@ import { MAPBOX_ACCESS_TOKEN } from '../src/config/mapbox-config';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { useRideStore } from '../src/store/rideStore';
 
-Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+if (MAPBOX_ACCESS_TOKEN) {
+  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+}
 
 interface SearchResult {
   name: string;
@@ -18,16 +20,20 @@ interface SearchResult {
   longitude: number;
 }
 
+const PLACEHOLDER_ADDRESS = 'Fetching location...';
+
 export default function PickOnMapScreen() {
   const { setPendingLocationPick, userLocation } = useRideStore();
   const params = useLocalSearchParams<{ type: 'pickup' | 'dropoff'; lat?: string; lng?: string }>();
+  const pickType = (params.type === 'dropoff' ? 'dropoff' : 'pickup') as 'pickup' | 'dropoff';
 
   const getInitialCenter = () => {
     if (params.lat && params.lng) {
-      return {
-        latitude: parseFloat(params.lat),
-        longitude: parseFloat(params.lng),
-      };
+      const latitude = parseFloat(params.lat);
+      const longitude = parseFloat(params.lng);
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        return { latitude, longitude };
+      }
     }
     if (userLocation) {
       return {
@@ -35,12 +41,13 @@ export default function PickOnMapScreen() {
         longitude: userLocation.longitude,
       };
     }
-    return null; // Will fetch current location
+    return null;
   };
 
-  const [center, setCenter] = useState(getInitialCenter() || { latitude: 12.9716, longitude: 77.5946 });
-  const [address, setAddress] = useState('Fetching location...');
-  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+  const initial = getInitialCenter() || { latitude: 11.1085, longitude: 77.3411 }; // Tiruppur default
+  const centerRef = useRef(initial);
+  const [address, setAddress] = useState(PLACEHOLDER_ADDRESS);
+  const [isLoadingAddress, setIsLoadingAddress] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -49,18 +56,15 @@ export default function PickOnMapScreen() {
   const cameraRef = useRef<Mapbox.Camera>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const initialCenter = useRef(getInitialCenter());
   const lastFetchedLocation = useRef<{ lat: number; lng: number } | null>(null);
+  const fetchSeq = useRef(0);
+  const isProgrammaticMove = useRef(false);
 
   useEffect(() => {
-    // If no initial location, get current location
-    if (!initialCenter.current) {
+    fetchAddress(initial.latitude, initial.longitude, true);
+    if (!getInitialCenter()) {
       getCurrentLocation();
-    } else {
-      fetchAddress(initialCenter.current.latitude, initialCenter.current.longitude, true);
     }
-
-    // Cleanup debounce timers
     return () => {
       if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -69,15 +73,11 @@ export default function PickOnMapScreen() {
 
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-
     if (searchQuery.length > 2) {
-      searchDebounceRef.current = setTimeout(() => {
-        searchLocation(searchQuery);
-      }, 300);
+      searchDebounceRef.current = setTimeout(() => searchLocation(searchQuery), 300);
     } else {
       setSearchResults([]);
     }
-
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
@@ -86,77 +86,107 @@ export default function PickOnMapScreen() {
   const getCurrentLocation = async () => {
     try {
       const { status } = await Location.getForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getLastKnownPositionAsync() || await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-        if (loc) {
-          const { latitude, longitude } = loc.coords;
-          setCenter({ latitude, longitude });
-          cameraRef.current?.setCamera({
-            centerCoordinate: [longitude, latitude],
-            zoomLevel: 15,
-            animationDuration: 1000,
-          });
-          fetchAddress(latitude, longitude, true);
-        }
-      }
+      if (status !== 'granted') return;
+      const loc =
+        (await Location.getLastKnownPositionAsync()) ||
+        (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }));
+      if (!loc) return;
+      const { latitude, longitude } = loc.coords;
+      moveCamera(latitude, longitude, 15);
+      fetchAddress(latitude, longitude, true);
     } catch (error) {
       console.log('Could not get current location:', error);
-      fetchAddress(center.latitude, center.longitude, true);
+    }
+  };
+
+  const moveCamera = (latitude: number, longitude: number, zoomLevel = 16) => {
+    centerRef.current = { latitude, longitude };
+    isProgrammaticMove.current = true;
+    cameraRef.current?.setCamera({
+      centerCoordinate: [longitude, latitude],
+      zoomLevel,
+      animationDuration: 600,
+    });
+    setTimeout(() => {
+      isProgrammaticMove.current = false;
+    }, 700);
+  };
+
+  const reverseGeocodeFallback = async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      const places = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      const p = places?.[0];
+      if (!p) return null;
+      const parts = [p.name, p.street, p.district, p.city, p.region].filter(Boolean);
+      return parts.length ? parts.join(', ') : null;
+    } catch {
+      return null;
     }
   };
 
   const fetchAddress = async (lat: number, lng: number, skipDebounce = false) => {
-    // Check if location changed significantly (>50m)
-    if (lastFetchedLocation.current) {
+    if (lastFetchedLocation.current && !skipDebounce) {
       const latDiff = Math.abs(lastFetchedLocation.current.lat - lat);
       const lngDiff = Math.abs(lastFetchedLocation.current.lng - lng);
-      // ~0.0005 degrees = ~50 meters
-      if (latDiff < 0.0005 && lngDiff < 0.0005 && !skipDebounce) {
-        return; // Too close to last fetch, skip
-      }
+      if (latDiff < 0.0005 && lngDiff < 0.0005) return;
     }
 
     lastFetchedLocation.current = { lat, lng };
+    const seq = ++fetchSeq.current;
     setIsLoadingAddress(true);
 
     try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.features?.[0]) {
-        setAddress(data.features[0].place_name);
-      } else {
-        setAddress('Unknown location');
+      let resolved: string | null = null;
+
+      if (MAPBOX_ACCESS_TOKEN) {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.features?.[0]?.place_name) {
+          resolved = data.features[0].place_name;
+        }
       }
+
+      if (!resolved) {
+        resolved = await reverseGeocodeFallback(lat, lng);
+      }
+
+      if (seq !== fetchSeq.current) return;
+      setAddress(resolved || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
     } catch {
-      setAddress('Unable to fetch address');
+      if (seq !== fetchSeq.current) return;
+      const fallback = await reverseGeocodeFallback(lat, lng);
+      if (seq !== fetchSeq.current) return;
+      setAddress(fallback || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
     } finally {
-      setIsLoadingAddress(false);
+      if (seq === fetchSeq.current) setIsLoadingAddress(false);
     }
   };
 
   const searchLocation = async (query: string) => {
+    if (!MAPBOX_ACCESS_TOKEN) {
+      setSearchResults([]);
+      return;
+    }
     setIsSearching(true);
     try {
       let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=5&country=IN&types=place,locality,neighborhood,address,poi`;
-      url += `&proximity=${center.longitude},${center.latitude}`;
-
+      url += `&proximity=${centerRef.current.longitude},${centerRef.current.latitude}`;
       const response = await fetch(url);
       const data = await response.json();
-
-      if (data.features && data.features.length > 0) {
-        const mapped: SearchResult[] = data.features.map((feature: any) => ({
-          name: feature.text,
-          address: feature.place_name,
-          latitude: feature.center[1],
-          longitude: feature.center[0],
-        }));
-        setSearchResults(mapped);
+      if (data.features?.length) {
+        setSearchResults(
+          data.features.map((feature: any) => ({
+            name: feature.text,
+            address: feature.place_name,
+            latitude: feature.center[1],
+            longitude: feature.center[0],
+          }))
+        );
       } else {
         setSearchResults([]);
       }
-    } catch (error) {
-      console.error('Search error:', error);
+    } catch {
       setSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -164,63 +194,78 @@ export default function PickOnMapScreen() {
   };
 
   const handleSearchResultSelect = (result: SearchResult) => {
-    setCenter({ latitude: result.latitude, longitude: result.longitude });
     setAddress(result.address);
     lastFetchedLocation.current = { lat: result.latitude, lng: result.longitude };
+    setIsLoadingAddress(false);
     setSearchQuery('');
     setSearchResults([]);
     setShowSearch(false);
-    cameraRef.current?.setCamera({
-      centerCoordinate: [result.longitude, result.latitude],
-      zoomLevel: 16,
-      animationDuration: 1000,
-    });
+    moveCamera(result.latitude, result.longitude, 16);
   };
 
-  const handleRegionChange = async (feature: any) => {
-    if (!mapReady) return; // Ignore initial map load
+  const handleRegionChange = (feature: any) => {
+    if (!mapReady || isProgrammaticMove.current) return;
     const [lng, lat] = feature.geometry.coordinates;
-    setCenter({ latitude: lat, longitude: lng });
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-    // Debounce address fetch - only after 1 second of no movement
-    if (addressDebounceRef.current) {
-      clearTimeout(addressDebounceRef.current);
-    }
+    centerRef.current = { latitude: lat, longitude: lng };
 
-    // Show "Moving..." while dragging
-    setAddress('Moving map...');
-
+    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    setIsLoadingAddress(true);
     addressDebounceRef.current = setTimeout(() => {
       fetchAddress(lat, lng);
-    }, 1000);
+    }, 650);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    const { latitude, longitude } = centerRef.current;
+    setIsLoadingAddress(true);
+
+    let resolved = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+    try {
+      if (MAPBOX_ACCESS_TOKEN) {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.features?.[0]?.place_name) resolved = data.features[0].place_name;
+      } else {
+        const fb = await reverseGeocodeFallback(latitude, longitude);
+        if (fb) resolved = fb;
+      }
+    } catch {
+      const fb = await reverseGeocodeFallback(latitude, longitude);
+      if (fb) resolved = fb;
+    } finally {
+      setIsLoadingAddress(false);
+    }
+
+    setAddress(resolved);
     setPendingLocationPick({
-      name: address.split(',')[0],
-      address,
-      latitude: center.latitude,
-      longitude: center.longitude,
+      name: resolved.split(',')[0],
+      address: resolved,
+      latitude,
+      longitude,
+      pickType,
     });
     router.back();
   };
 
+  const canConfirm = !isLoadingAddress;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {params.type === 'pickup' ? 'Pick Pickup Location' : 'Pick Drop Location'}
+          {pickType === 'pickup' ? 'Pick Pickup Location' : 'Pick Drop Location'}
         </Text>
         <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={styles.searchToggle}>
           <Ionicons name="search" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
       {showSearch && (
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
@@ -261,7 +306,6 @@ export default function PickOnMapScreen() {
         </View>
       )}
 
-      {/* Map */}
       <View style={styles.mapContainer}>
         <Mapbox.MapView
           style={styles.map}
@@ -271,28 +315,35 @@ export default function PickOnMapScreen() {
         >
           <Mapbox.Camera
             ref={cameraRef}
-            zoomLevel={15}
-            centerCoordinate={[center.longitude, center.latitude]}
+            defaultSettings={{
+              zoomLevel: 15,
+              centerCoordinate: [initial.longitude, initial.latitude],
+            }}
             animationMode="none"
           />
           <Mapbox.UserLocation visible showsUserHeadingIndicator />
         </Mapbox.MapView>
 
-        {/* Center pin */}
         <View style={styles.centerMarker}>
           <Ionicons
-            name={params.type === 'pickup' ? 'radio-button-on' : 'location'}
+            name={pickType === 'pickup' ? 'radio-button-on' : 'location'}
             size={40}
-            color={params.type === 'pickup' ? '#4CAF50' : '#F44336'}
+            color={pickType === 'pickup' ? '#4CAF50' : '#F44336'}
           />
         </View>
       </View>
 
-      {/* Bottom card */}
       <View style={styles.bottomCard}>
         <View style={styles.addressContainer}>
           {isLoadingAddress ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
+            <>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.addressText} numberOfLines={2}>
+                {address && address !== PLACEHOLDER_ADDRESS && address !== 'Moving map...'
+                  ? address
+                  : 'Getting address…'}
+              </Text>
+            </>
           ) : (
             <>
               <Ionicons name="location" size={20} color={Colors.primary} />
@@ -302,9 +353,9 @@ export default function PickOnMapScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.confirmButton, isLoadingAddress && styles.confirmButtonDisabled]}
+          style={[styles.confirmButton, !canConfirm && styles.confirmButtonDisabled]}
           onPress={handleConfirm}
-          disabled={isLoadingAddress}
+          disabled={!canConfirm}
         >
           <Text style={styles.confirmButtonText}>Confirm Location</Text>
         </TouchableOpacity>
@@ -405,12 +456,12 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
     minHeight: 60,
+    gap: 8,
   },
   addressText: {
     flex: 1,
     fontSize: FontSizes.md,
     color: '#333',
-    marginLeft: Spacing.sm,
     fontWeight: FontWeights.medium,
   },
   confirmButton: {

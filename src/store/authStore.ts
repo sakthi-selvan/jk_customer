@@ -4,6 +4,13 @@ import { User } from '../types';
 import { authApi, OTPAuthResponse } from '../api/auth';
 import { setApiToken, clearApiToken, setLogoutCallback } from '../api/client';
 
+export interface SignupDraft {
+  name: string;
+  email: string;
+  age: string;
+  gender: string;
+}
+
 interface AuthState {
   user: User | null;
   accessToken: string | null;
@@ -13,15 +20,24 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
 
-  // OTP flow state
   otpSent: boolean;
   otpPhone: string | null;
   isNewUser: boolean;
+  pendingWelcome: boolean;
+  signupDraft: SignupDraft | null;
 
-  // Actions
   sendOTP: (phone: string) => Promise<void>;
   verifyOTP: (phone: string, otp: string) => Promise<boolean>;
-  completeProfile: (name: string, email?: string, emergencyContactName?: string, emergencyContactPhone?: string) => Promise<void>;
+  setSignupDraft: (draft: SignupDraft) => void;
+  completeProfile: (data: {
+    name: string;
+    email?: string;
+    age?: number;
+    gender?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+  }) => Promise<void>;
+  finishWelcome: () => void;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   clearError: () => void;
@@ -38,6 +54,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
       otpSent: false,
       otpPhone: null,
       isNewUser: false,
+      pendingWelcome: false,
+      signupDraft: null,
     });
   });
 
@@ -52,6 +70,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
     otpSent: false,
     otpPhone: null,
     isNewUser: false,
+    pendingWelcome: false,
+    signupDraft: null,
 
     sendOTP: async (phone: string) => {
       try {
@@ -91,6 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             isLoading: false,
             otpSent: false,
             otpPhone: null,
+            pendingWelcome: false,
           });
         } else {
           set({ isLoading: false });
@@ -106,18 +127,23 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    completeProfile: async (name: string, email?: string, emergencyContactName?: string, emergencyContactPhone?: string) => {
+    setSignupDraft: (draft: SignupDraft) => set({ signupDraft: draft }),
+
+    completeProfile: async (data) => {
       try {
         set({ isLoading: true, error: null });
         await authApi.completeProfile({
-          name,
-          email: email || undefined,
-          emergency_contact_name: emergencyContactName || undefined,
-          emergency_contact_phone: emergencyContactPhone || undefined,
+          name: data.name,
+          email: data.email || undefined,
+          age: data.age,
+          gender: data.gender || undefined,
+          emergency_contact_name: data.emergencyContactName || undefined,
+          emergency_contact_phone: data.emergencyContactPhone || undefined,
         });
 
         const user = await authApi.getProfile();
         await storage.setItem('user', JSON.stringify(user));
+        await storage.setItem('pending_welcome', '1');
 
         set({
           user,
@@ -126,6 +152,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
           isNewUser: false,
           otpSent: false,
           otpPhone: null,
+          pendingWelcome: true,
+          signupDraft: null,
         });
       } catch (error: any) {
         set({
@@ -136,9 +164,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
+    finishWelcome: () => {
+      storage.removeItem('pending_welcome');
+      set({ pendingWelcome: false });
+    },
+
     logout: async () => {
       clearApiToken();
-      await storage.multiRemove(['access_token', 'refresh_token', 'user']);
+      await storage.multiRemove(['access_token', 'refresh_token', 'user', 'pending_welcome']);
       set({
         user: null,
         accessToken: null,
@@ -147,6 +180,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         otpSent: false,
         otpPhone: null,
         isNewUser: false,
+        pendingWelcome: false,
+        signupDraft: null,
       });
     },
 
@@ -155,6 +190,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         set({ isInitializing: true });
         const token = await storage.getItem('access_token');
         const userStr = await storage.getItem('user');
+        const pendingWelcome = (await storage.getItem('pending_welcome')) === '1';
 
         if (token && userStr) {
           const user = JSON.parse(userStr);
@@ -163,6 +199,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             user,
             accessToken: token,
             isAuthenticated: true,
+            pendingWelcome,
             isInitializing: false,
           });
         } else {

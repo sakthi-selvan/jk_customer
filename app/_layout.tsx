@@ -13,7 +13,7 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const { isAuthenticated, isInitializing, loadUser } = useAuthStore();
+  const { isAuthenticated, isInitializing, pendingWelcome, loadUser } = useAuthStore();
 
   useEffect(() => {
     loadUser();
@@ -23,11 +23,15 @@ export default function RootLayout() {
     if (isInitializing) return;
 
     if (isAuthenticated) {
-      router.replace('/');
+      if (pendingWelcome) {
+        router.replace('/(auth)/welcome');
+      } else {
+        router.replace('/');
+      }
     } else {
       router.replace('/(auth)/login');
     }
-  }, [isAuthenticated, isInitializing]);
+  }, [isAuthenticated, isInitializing, pendingWelcome]);
 
   if (isInitializing) {
     return (

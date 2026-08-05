@@ -19,8 +19,6 @@ import { Button } from '../src/components/common/Button';
 import { RatingModal } from '../src/components/RatingModal';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { Ride } from '../src/types';
-import { BottomNav } from '../src/components/navigation/BottomNav';
-
 const STATUS_CONFIG = {
   pending: {
     color: '#F59E0B',
@@ -395,7 +393,6 @@ export default function RidesScreen() {
         onSubmit={handleRateRide}
         rideId={ratingRideId || ''}
       />
-      <BottomNav />
     </SafeAreaView>
   );
 }

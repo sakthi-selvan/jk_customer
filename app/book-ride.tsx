@@ -32,14 +32,33 @@ const TRIP_TYPES = [
   { type: TripType.AIRPORT_PICKUP, label: 'Airport', icon: 'airplane' },
 ];
 
-const VEHICLE_OPTIONS = [
+const VEHICLE_FALLBACK = [
   { type: VehicleCategory.BIKE, name: 'Bike', icon: 'bicycle', capacity: '1 seat', examples: 'Activa, Pulsar', color: '#F97316' },
   { type: VehicleCategory.AUTO, name: 'Auto', icon: 'bus', capacity: '3 seats', examples: 'Auto rickshaw', color: '#EAB308' },
   { type: VehicleCategory.MINI, name: 'Mini', icon: 'car-outline', capacity: '4 seats', examples: 'WagonR, Alto', color: '#4CAF50' },
   { type: VehicleCategory.SEDAN, name: 'Sedan', icon: 'car-sport-outline', capacity: '4 seats', examples: 'Dzire, Etios', color: '#2196F3' },
   { type: VehicleCategory.SUV, name: 'SUV', icon: 'car', capacity: '6-7 seats', examples: 'Ertiga, Innova', color: '#FF9800' },
-  { type: VehicleCategory.PREMIUM, name: 'Premium', icon: 'diamond', capacity: '4 seats', examples: 'Crysta, BYD', color: '#9C27B0' },
 ];
+
+const VEHICLE_META: Record<string, { icon: string; color: string }> = {
+  bike: { icon: 'bicycle', color: '#F97316' },
+  auto: { icon: 'bus', color: '#EAB308' },
+  mini: { icon: 'car-outline', color: '#4CAF50' },
+  sedan: { icon: 'car-sport-outline', color: '#2196F3' },
+  suv: { icon: 'car', color: '#FF9800' },
+};
+
+type VehicleOption = {
+  type: VehicleCategory | string;
+  name: string;
+  icon: string;
+  capacity: string;
+  examples: string;
+  color: string;
+  base_fare?: number;
+  per_km_rate?: number;
+  hourly_rate?: number;
+};
 
 export default function BookRideScreen() {
   const { getActiveRide, userLocation, pendingLocationPick, setPendingLocationPick } = useRideStore();
@@ -52,6 +71,7 @@ export default function BookRideScreen() {
 
   // Vehicle & Fare
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleCategory>(VehicleCategory.MINI);
+  const [vehicleOptions, setVehicleOptions] = useState<VehicleOption[]>(VEHICLE_FALLBACK);
   const [fares, setFares] = useState<Record<string, number>>({});
   const [calculatingFares, setCalculatingFares] = useState(false);
   const [fareBreakdown, setFareBreakdown] = useState<FareBreakdown | null>(null);
@@ -77,6 +97,8 @@ export default function BookRideScreen() {
   const [recentDropoffs, setRecentDropoffs] = useState<LocationResult[]>([]);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlaces>({});
 
+  const [fareError, setFareError] = useState<string | null>(null);
+
   // Step: 'locations' | 'vehicle' | 'confirm'
   const step = !pickupLocation || !dropoffLocation ? 'locations' : 'vehicle';
 
@@ -88,35 +110,112 @@ export default function BookRideScreen() {
       autoFetchPickup();
     }
     fetchRecentLocations();
+    loadVehicleCategories();
   }, []);
 
-  // Listen for location picked from map
-  const lastPickTypeRef = useRef<'pickup' | 'dropoff' | null>(null);
-
-  useEffect(() => {
-    if (pendingLocationPick) {
-      // Determine which field to update based on last navigation
-      if (lastPickTypeRef.current === 'dropoff') {
-        setDropoffLocation(pendingLocationPick);
-      } else {
-        setPickupLocation(pendingLocationPick);
+  const loadVehicleCategories = async () => {
+    try {
+      const cats = await bookingEnhancedApi.getVehicleCategories();
+      if (!cats?.length) return;
+      const mapped: VehicleOption[] = cats
+        .filter((c) => c.name !== 'premium' && c.is_active !== false)
+        .map((c) => {
+        const meta = VEHICLE_META[c.name] || { icon: c.icon_name || 'car-outline', color: '#64748B' };
+        const examples = (c.example_vehicles || []).slice(0, 3).join(', ') || c.display_name;
+        return {
+          type: c.name,
+          name: c.display_name,
+          icon: meta.icon,
+          color: meta.color,
+          capacity: `${c.seater_capacity} seat${c.seater_capacity === 1 ? '' : 's'}`,
+          examples,
+          base_fare: c.base_fare,
+          per_km_rate: c.per_km_rate,
+          hourly_rate: c.hourly_rate,
+        };
+      });
+      setVehicleOptions(mapped);
+      if (!mapped.find((v) => v.type === selectedVehicle) && mapped[0]) {
+        setSelectedVehicle(mapped[0].type as VehicleCategory);
       }
-      setPendingLocationPick(null);
-      lastPickTypeRef.current = null;
+    } catch {
+      // Keep fallback list if API unavailable
     }
+  };
+
+  // Listen for location picked from map (pickType survives remount via store)
+  useEffect(() => {
+    if (!pendingLocationPick) return;
+    const pick = pendingLocationPick;
+    if (pick.pickType === 'dropoff') {
+      setDropoffLocation(pick);
+    } else {
+      setPickupLocation(pick);
+    }
+    setPendingLocationPick(null);
   }, [pendingLocationPick]);
 
   useEffect(() => {
     if (pickupLocation && dropoffLocation) {
       calculateAllFares();
     }
-  }, [pickupLocation, dropoffLocation]);
+  }, [pickupLocation, dropoffLocation, tripType, vehicleOptions]);
 
   useEffect(() => {
     if (pickupLocation && dropoffLocation && selectedVehicle) {
       fetchFareBreakdown();
     }
-  }, [selectedVehicle, pickupLocation, dropoffLocation]);
+  }, [selectedVehicle, pickupLocation, dropoffLocation, tripType]);
+
+  const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const estimateLocalFare = (
+    vehicle: VehicleOption,
+    distanceKm: number,
+    trip: TripType
+  ): FareBreakdown => {
+    const base = Number(vehicle.base_fare ?? 100);
+    const perKm = Number(vehicle.per_km_rate ?? 20);
+    const hourly = Number(vehicle.hourly_rate ?? 280);
+    const platform = 40;
+    const roadKm = Math.max(1, distanceKm * 1.25); // rough road factor
+
+    let baseFare = base;
+    let distanceFare = roadKm * perKm;
+    if (trip === TripType.RENTAL) {
+      baseFare = hourly;
+      distanceFare = Math.max(0, roadKm - 10) * perKm;
+    } else if (trip === TripType.ROUND_TRIP || trip === TripType.OUTSTATION) {
+      distanceFare = roadKm * perKm * 1.5;
+    }
+
+    const subtotal = baseFare + distanceFare + platform;
+    const gst = subtotal * 0.05;
+    const total = subtotal + gst;
+
+    return {
+      base_fare: Math.round(baseFare * 100) / 100,
+      distance_fare: Math.round(distanceFare * 100) / 100,
+      platform_fee: platform,
+      gst: Math.round(gst * 100) / 100,
+      toll_charges: 0,
+      night_charges: 0,
+      waiting_charges: 0,
+      total: Math.round(total * 100) / 100,
+      distance_km: Math.round(roadKm * 100) / 100,
+      duration_minutes: Math.round((roadKm / 25) * 60 * 10) / 10,
+      route_source: 'estimate',
+    };
+  };
 
   const autoFetchPickup = async () => {
     try {
@@ -185,21 +284,47 @@ export default function BookRideScreen() {
   const calculateAllFares = async () => {
     if (!pickupLocation || !dropoffLocation) return;
     setCalculatingFares(true);
+    setFareError(null);
+    const distanceKm = haversineKm(
+      pickupLocation.latitude,
+      pickupLocation.longitude,
+      dropoffLocation.latitude,
+      dropoffLocation.longitude
+    );
     const newFares: Record<string, number> = {};
+    let apiFailures = 0;
+    let firstDetail: string | null = null;
+
     try {
-      await Promise.all(VEHICLE_OPTIONS.map(async (v) => {
-        try {
-          const fare = await bookingEnhancedApi.calculateFare({
-            pickup_lat: pickupLocation.latitude,
-            pickup_lng: pickupLocation.longitude,
-            dropoff_lat: dropoffLocation.latitude,
-            dropoff_lng: dropoffLocation.longitude,
-            vehicle_category: v.type,
-          });
-          newFares[v.type] = fare.total;
-        } catch {}
-      }));
+      await Promise.all(
+        vehicleOptions.map(async (v) => {
+          try {
+            const fare = await bookingEnhancedApi.calculateFare({
+              pickup_lat: pickupLocation.latitude,
+              pickup_lng: pickupLocation.longitude,
+              dropoff_lat: dropoffLocation.latitude,
+              dropoff_lng: dropoffLocation.longitude,
+              vehicle_category: String(v.type),
+              trip_type: tripType,
+            });
+            newFares[v.type] = fare.total;
+          } catch (err: any) {
+            apiFailures += 1;
+            const detail = err?.response?.data?.detail;
+            if (typeof detail === 'string' && !firstDetail) firstDetail = detail;
+            const local = estimateLocalFare(v, distanceKm, tripType);
+            newFares[v.type] = local.total;
+          }
+        })
+      );
       setFares(newFares);
+      if (apiFailures === vehicleOptions.length) {
+        setFareError(firstDetail || 'Showing estimated fares (server unavailable)');
+      } else if (apiFailures > 0) {
+        setFareError(firstDetail || 'Some fares estimated locally');
+      } else {
+        setFareError(null);
+      }
     } finally {
       setCalculatingFares(false);
     }
@@ -207,16 +332,34 @@ export default function BookRideScreen() {
 
   const fetchFareBreakdown = async () => {
     if (!pickupLocation || !dropoffLocation) return;
+    const vehicle =
+      vehicleOptions.find((v) => v.type === selectedVehicle) ||
+      VEHICLE_FALLBACK.find((v) => v.type === selectedVehicle) ||
+      vehicleOptions[0];
+    const distanceKm = haversineKm(
+      pickupLocation.latitude,
+      pickupLocation.longitude,
+      dropoffLocation.latitude,
+      dropoffLocation.longitude
+    );
+
     try {
       const fare = await bookingEnhancedApi.calculateFare({
         pickup_lat: pickupLocation.latitude,
         pickup_lng: pickupLocation.longitude,
         dropoff_lat: dropoffLocation.latitude,
         dropoff_lng: dropoffLocation.longitude,
-        vehicle_category: selectedVehicle,
+        vehicle_category: String(selectedVehicle),
+        trip_type: tripType,
       });
       setFareBreakdown(fare);
-    } catch {}
+    } catch (err: any) {
+      if (vehicle) {
+        setFareBreakdown(estimateLocalFare(vehicle, distanceKm, tripType));
+      }
+      const detail = err?.response?.data?.detail;
+      if (typeof detail === 'string') setFareError(detail);
+    }
   };
 
   const handleBookRide = async () => {
@@ -265,7 +408,7 @@ export default function BookRideScreen() {
 
       Alert.alert(
         'Ride Booked!',
-        `Your ${VEHICLE_OPTIONS.find(v => v.type === selectedVehicle)?.name} is on the way.\n\nShare your OTP with the driver to start the ride.`,
+        `Your ${vehicleOptions.find(v => v.type === selectedVehicle)?.name || selectedVehicle} is on the way.\n\nShare your OTP with the driver to start the ride.`,
         [{ text: 'View Rides', onPress: () => router.replace('/rides') }]
       );
     } catch (error: any) {
@@ -314,7 +457,6 @@ export default function BookRideScreen() {
         <TouchableOpacity
           style={styles.pickOnMapBtn}
           onPress={() => {
-            lastPickTypeRef.current = 'pickup';
             router.push({
               pathname: '/pick-on-map',
               params: {
@@ -333,7 +475,6 @@ export default function BookRideScreen() {
           <TouchableOpacity
             style={[styles.pickOnMapBtn, { backgroundColor: '#FFF5F5', borderColor: '#F44336' + '30' }]}
             onPress={() => {
-              lastPickTypeRef.current = 'dropoff';
               router.push({
                 pathname: '/pick-on-map',
                 params: {
@@ -427,19 +568,29 @@ export default function BookRideScreen() {
       </ScrollView>
 
       {/* Vehicle list */}
+      {fareError ? (
+        <View style={styles.fareErrorBanner}>
+          <Ionicons name="information-circle-outline" size={16} color="#B45309" />
+          <Text style={styles.fareErrorText}>{fareError}</Text>
+        </View>
+      ) : null}
       <ScrollView style={styles.vehicleList} showsVerticalScrollIndicator={false}>
-        {VEHICLE_OPTIONS.map((v) => (
+        {vehicleOptions.map((v) => (
           <TouchableOpacity
             key={v.type}
             style={[styles.vehicleCard, selectedVehicle === v.type && styles.vehicleCardSelected]}
-            onPress={() => setSelectedVehicle(v.type)}
+            onPress={() => setSelectedVehicle(v.type as VehicleCategory)}
           >
             <View style={[styles.vehicleIcon, { backgroundColor: v.color + '15' }]}>
               <Ionicons name={v.icon as any} size={26} color={v.color} />
             </View>
             <View style={styles.vehicleInfo}>
               <Text style={styles.vehicleName}>{v.name}</Text>
-              <Text style={styles.vehicleMeta}>{v.capacity} • {v.examples}</Text>
+              <Text style={styles.vehicleMeta}>
+                {v.capacity} • {v.examples}
+                {typeof v.base_fare === 'number' ? ` • Base ₹${Math.round(v.base_fare)}` : ''}
+                {typeof v.per_km_rate === 'number' ? ` + ₹${v.per_km_rate}/km` : ''}
+              </Text>
             </View>
             <View style={styles.vehiclePrice}>
               {calculatingFares ? (
@@ -723,6 +874,25 @@ const styles = StyleSheet.create({
 
   // Vehicle list
   vehicleList: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
+  fareErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  fareErrorText: {
+    flex: 1,
+    fontSize: FontSizes.sm,
+    color: '#92400E',
+    fontWeight: FontWeights.medium,
+  },
   vehicleCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: BorderRadius.lg,
     padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#F0F0F0',

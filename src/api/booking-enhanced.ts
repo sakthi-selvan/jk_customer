@@ -28,7 +28,7 @@ export const bookingEnhancedApi = {
   }): Promise<FareBreakdown> => {
     const response = await apiClient.post<FareBreakdown>(
       '/api/v2/bookings/calculate-fare',
-      null,
+      {},
       { params }
     );
     return response.data;

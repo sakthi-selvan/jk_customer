@@ -4,6 +4,8 @@ export interface User {
   phone: string;
   name: string;
   email?: string;
+  age?: number;
+  gender?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   ride_otp: string; // Static OTP for all rides (like Rapido)

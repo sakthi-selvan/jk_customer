@@ -10,6 +10,7 @@ interface UserLocation {
   longitude: number;
   name: string;
   address: string;
+  pickType?: 'pickup' | 'dropoff';
 }
 
 interface DriverLocation {

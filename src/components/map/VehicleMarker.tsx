@@ -6,7 +6,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export type FleetCategory = 'all' | 'bike' | 'auto' | 'mini' | 'sedan' | 'suv' | 'premium' | 'other';
+export type FleetCategory = 'all' | 'bike' | 'auto' | 'mini' | 'sedan' | 'suv' | 'other';
 
 export const FLEET_FILTERS: Array<{
   id: FleetCategory;
@@ -20,7 +20,6 @@ export const FLEET_FILTERS: Array<{
   { id: 'mini', label: 'Mini', icon: 'car-outline', color: '#22C55E' },
   { id: 'sedan', label: 'Sedan', icon: 'car-sport-outline', color: '#3B82F6' },
   { id: 'suv', label: 'SUV', icon: 'car', color: '#F59E0B' },
-  { id: 'premium', label: 'Premium', icon: 'diamond', color: '#8B5CF6' },
 ];
 
 const STYLE: Record<
@@ -32,7 +31,6 @@ const STYLE: Record<
   mini: { icon: 'car-outline', bg: '#22C55E', label: 'M', shape: 'circle' },
   sedan: { icon: 'car-sport-outline', bg: '#3B82F6', label: 'S', shape: 'circle' },
   suv: { icon: 'car', bg: '#F59E0B', label: 'V', shape: 'circle' },
-  premium: { icon: 'diamond', bg: '#8B5CF6', label: 'P', shape: 'circle' },
   other: { icon: 'car', bg: '#64748B', label: '?', shape: 'circle' },
 };
 
@@ -42,8 +40,7 @@ export function normalizeFleetCategory(vehicleType?: string | null): FleetCatego
   if (!t) return 'other';
   if (/(bike|motor|scooter|2wheel|two_wheel)/.test(t)) return 'bike';
   if (/(auto|rickshaw|3wheel|three_wheel)/.test(t)) return 'auto';
-  if (/(premium|luxury|crysta|byd)/.test(t)) return 'premium';
-  if (/(suv|muv|xl|innova|ertiga)/.test(t)) return 'suv';
+  if (/(suv|muv|xl|innova|ertiga|premium|luxury|crysta|byd)/.test(t)) return 'suv';
   if (/(sedan|dzire|etios)/.test(t)) return 'sedan';
   if (/(mini|hatch|wagon|alto|compact)/.test(t)) return 'mini';
   if (t.includes('car')) return 'mini';

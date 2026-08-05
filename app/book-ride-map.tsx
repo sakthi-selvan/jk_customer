@@ -137,13 +137,6 @@ export default function BookRideMapScreen() {
       capacity: '6-7 seats',
       description: 'Spacious SUVs',
     },
-    {
-      type: VehicleCategory.PREMIUM,
-      name: 'Premium',
-      icon: 'car-sport' as const,
-      capacity: '4 seats',
-      description: 'Luxury experience',
-    },
   ];
 
   return (

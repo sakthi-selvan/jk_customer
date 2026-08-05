@@ -65,10 +65,10 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const searchInputRef = useRef<TextInput>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [floatingBarActive, setFloatingBarActive] = useState(false);
-  const floatingBarOpacity = useRef(new Animated.Value(0.45)).current;
+  const [floatingBarActive, setFloatingBarActive] = useState(true);
+  const floatingBarOpacity = useRef(new Animated.Value(1)).current;
   const [fleetFilter, setFleetFilter] = useState<FleetCategory>('all');
-
+  const [sheetExpanded, setSheetExpanded] = useState(false);
   const menuSlideAnim = useRef(new Animated.Value(-320)).current;
 
   useEffect(() => {
@@ -258,26 +258,16 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const floatingBarTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activateFloatingBar = () => {
-    if (floatingBarActive) return;
     setFloatingBarActive(true);
     Animated.timing(floatingBarOpacity, {
       toValue: 1,
-      duration: 200,
+      duration: 150,
       useNativeDriver: true,
     }).start();
-    if (floatingBarTimeout.current) clearTimeout(floatingBarTimeout.current);
-    floatingBarTimeout.current = setTimeout(() => {
-      deactivateFloatingBar();
-    }, 4000);
   };
 
   const deactivateFloatingBar = () => {
-    setFloatingBarActive(false);
-    Animated.timing(floatingBarOpacity, {
-      toValue: 0.45,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+    // Keep hamburger always usable — do not dim the bar.
   };
 
   const toggleMenu = () => {
@@ -289,7 +279,6 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
       friction: 11,
     }).start();
     setMenuOpen(!menuOpen);
-    if (!menuOpen) activateFloatingBar();
   };
 
   const handleRideComplete = async () => {
@@ -331,22 +320,21 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
         />
       )}
 
-      {/* Floating Location Card - transparent until tapped */}
+      {/* Floating Location Card */}
       <TouchableOpacity
         activeOpacity={1}
         onPress={activateFloatingBar}
         style={[styles.floatingLocationCard, { top: insets.top + LOCATION_CARD_TOP }]}
       >
         <Animated.View style={[styles.floatingBarInner, { opacity: floatingBarOpacity }]}>
-          <TouchableOpacity style={styles.menuButton} onPress={() => { activateFloatingBar(); toggleMenu(); }} disabled={!floatingBarActive}>
+          <TouchableOpacity style={styles.menuButton} onPress={toggleMenu}>
             <Ionicons name="menu" size={24} color="#000000" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.locationInfo}
-            onPress={() => { activateFloatingBar(); setShowLocationSearch(true); }}
+            onPress={() => setShowLocationSearch(true)}
             activeOpacity={0.7}
-            disabled={!floatingBarActive}
           >
             {isLoadingLocation ? (
               <ActivityIndicator size="small" color={Colors.primary} />
@@ -361,8 +349,8 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
 
           <TouchableOpacity
             style={styles.notificationButton}
-            onPress={() => { activateFloatingBar(); getUserLocation(); }}
-            disabled={!floatingBarActive || isLoadingLocation}
+            onPress={getUserLocation}
+            disabled={isLoadingLocation}
           >
             <Ionicons
               name={isLoadingLocation ? "refresh" : "navigate-circle-outline"}
@@ -596,7 +584,8 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
       {showActiveRideSheet ? (
         <RideBottomSheet ride={activeRide as any} onRideComplete={handleRideComplete} liveEta={liveEta} />
       ) : (
-        <View style={styles.bottomCard}>
+        <View style={[styles.bottomCard, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+          <View style={styles.sheetHandle} />
           {activeRide ? (
             <TouchableOpacity
               style={styles.activeRideCard}
@@ -616,7 +605,6 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
           ) : (
             <>
               <Text style={styles.bookingPrompt}>Where to?</Text>
-              <Text style={styles.bookingSubprompt}>Book a JK Taxi in seconds</Text>
               <TouchableOpacity style={styles.searchBox} onPress={onBookRide} activeOpacity={0.85}>
                 <View style={styles.searchIconWrap}>
                   <Ionicons name="search" size={18} color={Colors.white} />
@@ -627,31 +615,44 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
                 </View>
               </TouchableOpacity>
 
-              {/* Saved Places */}
-              {(savedPlaces.home || savedPlaces.work) && (
-                <View style={styles.savedPlacesRow}>
+              {(savedPlaces.home || savedPlaces.work || recentDropoffs.length > 0) && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.quickChips}
+                  style={styles.quickChipsScroll}
+                >
                   {savedPlaces.home && (
                     <TouchableOpacity style={styles.savedPlaceChip} onPress={onBookRide}>
-                      <Ionicons name="home" size={16} color={Colors.primary} />
+                      <Ionicons name="home" size={15} color={Colors.primary} />
                       <Text style={styles.savedPlaceText} numberOfLines={1}>Home</Text>
                     </TouchableOpacity>
                   )}
                   {savedPlaces.work && (
                     <TouchableOpacity style={styles.savedPlaceChip} onPress={onBookRide}>
-                      <Ionicons name="briefcase" size={16} color={Colors.primary} />
+                      <Ionicons name="briefcase" size={15} color={Colors.primary} />
                       <Text style={styles.savedPlaceText} numberOfLines={1}>Work</Text>
                     </TouchableOpacity>
                   )}
-                </View>
+                  {recentDropoffs.slice(0, 4).map((item, index) => (
+                    <TouchableOpacity
+                      key={`${item.latitude}-${index}`}
+                      style={styles.recentChip}
+                      onPress={onBookRide}
+                    >
+                      <Ionicons name="time-outline" size={14} color="#64748B" />
+                      <Text style={styles.recentChipText} numberOfLines={1}>{item.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               )}
 
-              {/* Recent/Popular Destinations */}
-              {recentDropoffs.length > 0 && (
+              {sheetExpanded && recentDropoffs.length > 0 && (
                 <View style={styles.recentSection}>
                   <Text style={styles.recentTitle}>Recent</Text>
                   {recentDropoffs.slice(0, 3).map((item, index) => (
                     <TouchableOpacity
-                      key={`${item.latitude}-${index}`}
+                      key={`expanded-${item.latitude}-${index}`}
                       style={styles.recentItem}
                       onPress={onBookRide}
                     >
@@ -666,6 +667,23 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
                     </TouchableOpacity>
                   ))}
                 </View>
+              )}
+
+              {(savedPlaces.home || savedPlaces.work || recentDropoffs.length > 0) && (
+                <TouchableOpacity
+                  style={styles.expandToggle}
+                  onPress={() => setSheetExpanded((v) => !v)}
+                  hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+                >
+                  <Text style={styles.expandToggleText}>
+                    {sheetExpanded ? 'Show less' : 'More places'}
+                  </Text>
+                  <Ionicons
+                    name={sheetExpanded ? 'chevron-down' : 'chevron-up'}
+                    size={16}
+                    color={Colors.primary}
+                  />
+                </TouchableOpacity>
               )}
             </>
           )}
@@ -909,7 +927,7 @@ const styles = StyleSheet.create({
   centerButton: {
     position: 'absolute',
     right: Spacing.md,
-    bottom: 200,
+    bottom: 210,
     width: 48,
     height: 48,
     borderRadius: BorderRadius.full,
@@ -926,25 +944,32 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 88,
+    bottom: 0,
     backgroundColor: Colors.sheet,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
+    paddingTop: Spacing.sm,
     shadowColor: '#1A1B2E',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.1,
     shadowRadius: 18,
     elevation: 14,
-    borderTopWidth: 0,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+    marginBottom: Spacing.sm,
   },
   bookingPrompt: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: FontWeights.bold,
     color: Colors.ink,
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
+    marginBottom: Spacing.sm,
   },
   bookingSubprompt: {
     fontSize: FontSizes.sm,
@@ -957,7 +982,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderRadius: BorderRadius.xl,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1.5,
@@ -989,6 +1014,16 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.bold,
     fontSize: FontSizes.sm,
   },
+  quickChipsScroll: {
+    marginBottom: 2,
+    maxHeight: 44,
+  },
+  quickChips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
   savedPlacesRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -998,17 +1033,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F0F5FF',
-    borderRadius: BorderRadius.xl,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     gap: 6,
     borderWidth: 1,
     borderColor: '#E0E0FF',
+    maxWidth: 140,
   },
   savedPlaceText: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
     color: '#333',
+  },
+  recentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    maxWidth: 160,
+  },
+  recentChipText: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+    color: '#334155',
+  },
+  expandToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  expandToggleText: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+    color: Colors.primary,
   },
   recentSection: {
     marginTop: Spacing.xs,

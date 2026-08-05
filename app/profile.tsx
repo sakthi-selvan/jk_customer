@@ -14,8 +14,6 @@ import { router } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 import { Button } from '../src/components/common/Button';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
-import { BottomNav } from '../src/components/navigation/BottomNav';
-
 export default function ProfileScreen() {
   const { user, logout, loadUser } = useAuthStore();
   const [refreshing, setRefreshing] = useState(false);
@@ -262,9 +260,8 @@ export default function ProfileScreen() {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
-      <BottomNav />
     </SafeAreaView>
   );
 }
