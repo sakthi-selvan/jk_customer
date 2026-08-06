@@ -1,7 +1,7 @@
 /**
  * Top-down vehicle markers — cropped photo icons, transparent background (no halo).
  */
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, Image, StyleSheet, ImageSourcePropType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -59,14 +59,16 @@ interface VehicleMarkerProps {
   heading?: number | null;
 }
 
-export const VehicleMarker: React.FC<VehicleMarkerProps> = ({
+export const VehicleMarker: React.FC<VehicleMarkerProps> = memo(({
   category,
   size = 40,
   heading = null,
 }) => {
   const key = (TOP_VIEW[category] ? category : normalizeFleetCategory(category)) as string;
   const source = TOP_VIEW[key] || TOP_VIEW.other;
-  const rotation = typeof heading === 'number' && Number.isFinite(heading) ? heading : 0;
+  // Round heading so tiny GPS jitter does not thrash image transforms.
+  const rotation =
+    typeof heading === 'number' && Number.isFinite(heading) ? Math.round(heading) : 0;
   // Top-view assets are taller than wide — avoid square letterboxing.
   const width = Math.round(size * 0.55);
   const height = size;
@@ -85,7 +87,7 @@ export const VehicleMarker: React.FC<VehicleMarkerProps> = ({
       <Image source={source} style={styles.image} resizeMode="contain" />
     </View>
   );
-};
+});
 
 export const VehicleMarkerLegend: React.FC<{ category: FleetCategory }> = ({ category }) => {
   const cfg = STYLE[category] || STYLE.other;

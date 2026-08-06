@@ -348,10 +348,10 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           </Mapbox.PointAnnotation>
         )}
 
-        {/* Remount lightly so Mapbox paints movement along the road */}
+        {/* Stable key — coordinate-based keys remount MarkerView every tick and blink */}
         {driverLocation && (rideStatus === 'accepted' || rideStatus === 'started') && (
           <Mapbox.MarkerView
-            key={`driver-${driverLocation.latitude.toFixed(4)}-${driverLocation.longitude.toFixed(4)}`}
+            key="driver-marker"
             id="driver"
             coordinate={[driverLocation.longitude, driverLocation.latitude]}
             allowOverlap
