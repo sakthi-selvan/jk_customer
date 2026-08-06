@@ -62,6 +62,7 @@ export default function RootLayout() {
           <Stack.Screen name="book-ride-complete" />
           <Stack.Screen name="pick-on-map" />
           <Stack.Screen name="edit-profile" />
+          <Stack.Screen name="ride-ui-preview" />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <StatusBar style="dark" translucent={true} />

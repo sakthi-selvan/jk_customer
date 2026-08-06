@@ -31,6 +31,8 @@ interface RideTrackingMapProps {
   driverLocation: Location | null;
   vehicleCategory?: string;
   onEtaUpdate?: (distanceKm: number, durationMin: number) => void;
+  /** Optional nearby captain pins (UI preview / searching). */
+  nearbyPins?: Array<{ id: string; latitude: number; longitude: number; category: string }>;
 }
 
 interface RouteData {
@@ -52,6 +54,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
   driverLocation,
   vehicleCategory,
   onEtaUpdate,
+  nearbyPins,
 }) => {
   const cameraRef = useRef<Mapbox.Camera>(null);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
@@ -325,6 +328,18 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
             <VehicleMarker category={vehicleCategory || 'mini'} size={38} />
           </Mapbox.PointAnnotation>
         )}
+
+        {rideStatus === 'pending' &&
+          nearbyPins?.map((pin) => (
+            <Mapbox.PointAnnotation
+              key={pin.id}
+              id={pin.id}
+              coordinate={[pin.longitude, pin.latitude]}
+              title={pin.category}
+            >
+              <VehicleMarker category={pin.category} size={32} />
+            </Mapbox.PointAnnotation>
+          ))}
       </Mapbox.MapView>
 
       <View style={styles.phaseBanner}>

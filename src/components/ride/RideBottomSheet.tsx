@@ -28,6 +28,8 @@ interface RideBottomSheetProps {
   ride: EnhancedRide;
   onRideComplete: () => void;
   liveEta?: { distance: number; duration: number } | null;
+  /** UI preview: force nearby count instead of API polling */
+  nearbyCountOverride?: number;
 }
 
 const CANCEL_REASONS = [
@@ -49,11 +51,16 @@ const formatFare = (value?: number | null) =>
 const formatDistance = (value?: number | null) =>
   typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)} km` : '—';
 
-export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideComplete, liveEta }) => {
+export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
+  ride,
+  onRideComplete,
+  liveEta,
+  nearbyCountOverride,
+}) => {
   const { user } = useAuthStore();
   // Rapido-style: one OTP per user for every ride
   const displayOtp = user?.ride_otp || ride.ride_otp;
-  const [nearbyCount, setNearbyCount] = useState(0);
+  const [nearbyCount, setNearbyCount] = useState(nearbyCountOverride ?? 0);
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -139,14 +146,18 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
     };
   }, [ride.status]);
 
-  // Fetch nearby drivers count
+  // Fetch nearby drivers count (skip when preview override is set)
   useEffect(() => {
+    if (typeof nearbyCountOverride === 'number') {
+      setNearbyCount(nearbyCountOverride);
+      return;
+    }
     if (ride.status === 'pending') {
       fetchNearby();
       const interval = setInterval(fetchNearby, 5000);
       return () => clearInterval(interval);
     }
-  }, [ride.status]);
+  }, [ride.status, nearbyCountOverride]);
 
   // Show rating on completion
   useEffect(() => {
@@ -172,6 +183,12 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
       : selectedCancelReason;
     if (!reason) {
       Alert.alert('Select a reason', 'Please select why you want to cancel.');
+      return;
+    }
+    // UI preview ride — no backend call
+    if (String(ride.id).startsWith('preview-')) {
+      setShowCancelModal(false);
+      onRideComplete();
       return;
     }
     try {
@@ -243,6 +260,10 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
 
   const handleSubmitRating = async () => {
     if (rating === 0) { Alert.alert('Required', 'Please select a rating.'); return; }
+    if (String(ride.id).startsWith('preview-')) {
+      Alert.alert('Thank You!', 'Preview rating noted.', [{ text: 'OK', onPress: onRideComplete }]);
+      return;
+    }
     try {
       await bookingEnhancedApi.submitRating(ride.id, rating);
       Alert.alert('Thank You!', 'Your rating was saved.', [{ text: 'OK', onPress: onRideComplete }]);
