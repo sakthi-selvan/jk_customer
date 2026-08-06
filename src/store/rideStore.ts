@@ -93,11 +93,17 @@ export const useRideStore = create<RideState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       const ride = await bookingEnhancedApi.getActiveRide();
+      if (!ride) {
+        set({ activeRide: null, isLoading: false });
+        get().stopTracking();
+        return;
+      }
       set({ activeRide: ride as any, isLoading: false, lastStatusAt: Date.now() });
-      if (ride && ['pending', 'accepted', 'started'].includes(ride.status)) {
+      if (['pending', 'accepted', 'started'].includes(ride.status)) {
         get().startTracking();
       }
     } catch (error: any) {
+      // Network / unexpected only — no-active-ride is handled as null above
       if (error.response?.status === 404) {
         set({ activeRide: null, isLoading: false });
         get().stopTracking();

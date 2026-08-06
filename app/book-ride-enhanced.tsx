@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   ScrollView,
   TextInput,
   TouchableOpacity,
   Alert,
   Modal,
-  ImageSourcePropType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +15,7 @@ import { router } from 'expo-router';
 import { bookingEnhancedApi, userEnhancedApi } from '../src/api/booking-enhanced';
 import { Button } from '../src/components/common/Button';
 import { Card } from '../src/components/common/Card';
+import { VehicleCategoryImage } from '../src/components/ride/VehicleCategoryImage';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { LoadingAnimation } from '../src/components/common/LoadingAnimation';
 import {
@@ -26,15 +25,6 @@ import {
   RidePreferences,
   FareBreakdown,
 } from '../src/types/enhanced';
-
-const fallbackVehicleImage = require('../assets/images/jk_taxi_logo.png');
-const VEHICLE_IMAGES: Record<string, ImageSourcePropType> = {
-  auto: fallbackVehicleImage,
-  bike: fallbackVehicleImage,
-  mini: fallbackVehicleImage,
-  sedan: fallbackVehicleImage,
-  suv: fallbackVehicleImage,
-};
 
 export default function BookRideEnhancedScreen() {
   // Step state
@@ -477,11 +467,9 @@ export default function BookRideEnhancedScreen() {
             onPress={() => setSelectedVehicle(vehicle.name as VehicleCategory)}
           >
             <View style={styles.vehicleHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                {VEHICLE_IMAGES[vehicle.name] && (
-                  <Image source={VEHICLE_IMAGES[vehicle.name]} style={styles.vehicleImg} resizeMode="contain" />
-                )}
-                <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: Spacing.sm }}>
+                <VehicleCategoryImage type={vehicle.name} width={80} height={56} />
+                <View style={{ flex: 1 }}>
                   <Text style={styles.vehicleName}>{vehicle.display_name}</Text>
                   <Text style={styles.vehicleCapacity}>{vehicle.seater_capacity} Seater</Text>
                 </View>
@@ -793,11 +781,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.sm,
-  },
-  vehicleImg: {
-    width: 70,
-    height: 45,
-    marginRight: Spacing.sm,
   },
   vehicleName: {
     fontSize: FontSizes.lg,

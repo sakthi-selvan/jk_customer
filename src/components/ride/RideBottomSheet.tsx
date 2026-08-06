@@ -38,6 +38,17 @@ const CANCEL_REASONS = [
   'Driver asked to cancel',
 ];
 
+const HELP_LINES = [
+  { label: 'Help Line 1', phone: '9677895027', display: '9677 895 027' },
+  { label: 'Help Line 2', phone: '9677885027', display: '9677 885 027' },
+];
+
+const formatFare = (value?: number | null) =>
+  typeof value === 'number' && Number.isFinite(value) ? `₹${Math.round(value)}` : '—';
+
+const formatDistance = (value?: number | null) =>
+  typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)} km` : '—';
+
 export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideComplete, liveEta }) => {
   const { user } = useAuthStore();
   // Rapido-style: one OTP per user for every ride
@@ -46,10 +57,16 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [selectedCancelReason, setSelectedCancelReason] = useState<string | null>(null);
   const [customCancelReason, setCustomCancelReason] = useState('');
 
-  const initialHeight = ride.status === 'pending' ? 320 : MIN_HEIGHT;
+  const fareDisplay = formatFare(ride.fare);
+  const distanceDisplay = formatDistance(ride.distance_km);
+  const pickupAddress = ride.pickup_location?.trim() || 'Pickup location';
+  const dropoffAddress = ride.dropoff_location?.trim() || '';
+
+  const initialHeight = ride.status === 'pending' ? 380 : MIN_HEIGHT;
   const sheetHeight = useRef(new Animated.Value(initialHeight)).current;
   const lastHeight = useRef(initialHeight);
   const searchPulse = useRef(new Animated.Value(0)).current;
@@ -144,6 +161,13 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
     );
   };
 
+  const callHelpLine = (phone: string) => {
+    setShowHelpModal(false);
+    Linking.openURL(`tel:${phone}`).catch(() =>
+      Alert.alert('Error', 'Unable to make call. Please dial manually.')
+    );
+  };
+
   const handleSOS = () => {
     Alert.alert(
       'Emergency SOS',
@@ -221,83 +245,83 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
       >
         {/* Draggable header */}
         <View {...panResponder.panHandlers} style={styles.headerSection}>
-          {/* Status badge */}
+          {/* Status badge + help / ETA on the right */}
           <View style={styles.statusRow}>
             <View style={[styles.statusBadge, { backgroundColor: statusConfig.color }]}>
               <Ionicons name={statusConfig.icon as any} size={14} color="#FFF" />
               <Text style={styles.statusText}>{statusConfig.title}</Text>
             </View>
-            {(ride.status === 'accepted' || ride.status === 'started') && (
+
+            {ride.status === 'pending' ? (
+              <TouchableOpacity
+                style={styles.helpChip}
+                onPress={() => setShowHelpModal(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="call" size={14} color="#166534" />
+                <Text style={styles.helpChipText}>Contact</Text>
+              </TouchableOpacity>
+            ) : (ride.status === 'accepted' || ride.status === 'started') ? (
               <View style={styles.etaBadge}>
                 <Ionicons name="time" size={12} color={Colors.primary} />
                 <Text style={styles.etaText}>
-                  {liveEta ? `${Math.ceil(liveEta.duration)} min` : `${ride.eta_minutes} min`}
+                  {liveEta ? `${Math.ceil(liveEta.duration)} min` : `${ride.eta_minutes || '—'} min`}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
 
           {/* PENDING STATE */}
           {ride.status === 'pending' && (
             <View style={styles.pendingContainer}>
-              {nearbyCount > 0 ? (
-                <>
-                  <Animated.View style={[styles.pulseCircle, {
-                    opacity: searchPulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
-                    transform: [{ scale: searchPulse.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1.05] }) }],
-                  }]}>
-                    <Ionicons name="car" size={28} color={Colors.primary} />
-                  </Animated.View>
+              <Animated.View
+                style={[
+                  styles.pulseCircle,
+                  {
+                    opacity: searchPulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
+                    transform: [
+                      {
+                        scale: searchPulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.94, 1.06],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <Ionicons name="car-sport" size={26} color={Colors.primary} />
+              </Animated.View>
 
-                  <View style={styles.liveStats}>
-                    <View style={styles.statBox}>
-                      <Text style={styles.statNumber}>{nearbyCount}</Text>
-                      <Text style={styles.statLabel}>Nearby</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statBox}>
-                      <Text style={styles.statNumber}>{ride.rejection_count || 0}</Text>
-                      <Text style={styles.statLabel}>Passed</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statBox}>
-                      <Text style={[styles.statNumber, { color: '#F59E0B' }]}>Searching</Text>
-                      <Text style={styles.statLabel}>Status</Text>
-                    </View>
-                  </View>
-                </>
-              ) : (
-                <View style={styles.noDriversContainer}>
-                  <Ionicons name="car-outline" size={32} color="#999" />
-                  <Text style={styles.noDriversTitle}>No captains nearby</Text>
-                  <Text style={styles.noDriversSubtext}>
-                    Still searching... or contact our help desk for assistance
-                  </Text>
+              <Text style={styles.pendingTitle}>
+                {nearbyCount > 0
+                  ? `Finding a captain near you`
+                  : 'Looking for captains nearby'}
+              </Text>
+              <Text style={styles.pendingSubtitle}>
+                {nearbyCount > 0
+                  ? `${nearbyCount} captain${nearbyCount === 1 ? '' : 's'} in range · hang tight`
+                  : 'We’ll keep searching. Use Contact if you need help.'}
+              </Text>
 
-                  <View style={styles.helpDeskContainer}>
-                    <TouchableOpacity style={styles.helpCallRow} onPress={() => Linking.openURL('tel:9677895027')}>
-                      <View style={styles.helpCallIcon}>
-                        <Ionicons name="call" size={16} color="#FFF" />
-                      </View>
-                      <View style={styles.helpCallTextContainer}>
-                        <Text style={styles.helpCallLabel}>Help Line 1</Text>
-                        <Text style={styles.helpCallNumber}>9677 895 027</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#CCC" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.helpCallRow, { borderBottomWidth: 0 }]} onPress={() => Linking.openURL('tel:9677885027')}>
-                      <View style={styles.helpCallIcon}>
-                        <Ionicons name="call" size={16} color="#FFF" />
-                      </View>
-                      <View style={styles.helpCallTextContainer}>
-                        <Text style={styles.helpCallLabel}>Help Line 2</Text>
-                        <Text style={styles.helpCallNumber}>9677 885 027</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#CCC" />
-                    </TouchableOpacity>
-                  </View>
+              <View style={styles.liveStats}>
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>{nearbyCount}</Text>
+                  <Text style={styles.statLabel}>Nearby</Text>
                 </View>
-              )}
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>{ride.rejection_count || 0}</Text>
+                  <Text style={styles.statLabel}>Passed</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Text style={[styles.statNumber, { color: '#F59E0B', fontSize: FontSizes.md }]}>
+                    Live
+                  </Text>
+                  <Text style={styles.statLabel}>Search</Text>
+                </View>
+              </View>
             </View>
           )}
 
@@ -339,39 +363,39 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
 
         {/* Details */}
         <View style={styles.detailsSection}>
-          {/* Locations */}
+          {/* Locations — pickup first, full address */}
           <View style={styles.locationsCard}>
             <View style={styles.locRow}>
               <View style={[styles.locDot, { backgroundColor: '#4CAF50' }]} />
               <View style={styles.locTextContainer}>
                 <Text style={styles.locLabel}>Pickup</Text>
-                <Text style={styles.locAddress} numberOfLines={1}>{ride.pickup_location}</Text>
+                <Text style={styles.locAddress} numberOfLines={2}>{pickupAddress}</Text>
               </View>
             </View>
-            {ride.dropoff_location && (
-              <View style={styles.locRow}>
+            {!!dropoffAddress && (
+              <View style={[styles.locRow, { marginBottom: 0 }]}>
                 <View style={[styles.locDot, { backgroundColor: '#F44336' }]} />
                 <View style={styles.locTextContainer}>
                   <Text style={styles.locLabel}>Dropoff</Text>
-                  <Text style={styles.locAddress} numberOfLines={1}>{ride.dropoff_location}</Text>
+                  <Text style={styles.locAddress} numberOfLines={2}>{dropoffAddress}</Text>
                 </View>
               </View>
             )}
           </View>
 
-          {/* OTP + Fare row */}
+          {/* OTP + Fare + Distance from booking */}
           <View style={styles.infoRow}>
             <View style={styles.otpBox}>
               <Text style={styles.otpLabel}>Your OTP</Text>
-              <Text style={styles.otpValue}>{displayOtp}</Text>
+              <Text style={styles.otpValue}>{displayOtp || '——'}</Text>
             </View>
             <View style={styles.fareBox}>
               <Text style={styles.fareLabel}>Fare</Text>
-              <Text style={styles.fareValue}>₹{Math.round(ride.fare)}</Text>
+              <Text style={styles.fareValue}>{fareDisplay}</Text>
             </View>
             <View style={styles.distBox}>
               <Text style={styles.distLabel}>Distance</Text>
-              <Text style={styles.distValue}>{ride.distance_km.toFixed(1)} km</Text>
+              <Text style={styles.distValue}>{distanceDisplay}</Text>
             </View>
           </View>
 
@@ -415,6 +439,43 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
           )}
         </View>
       </ScrollView>
+
+      {/* Help contact modal */}
+      <Modal visible={showHelpModal} transparent animationType="fade" onRequestClose={() => setShowHelpModal(false)}>
+        <View style={styles.cancelModalOverlay}>
+          <View style={styles.helpModalContent}>
+            <View style={styles.helpModalHeader}>
+              <Text style={styles.helpModalTitle}>Contact support</Text>
+              <TouchableOpacity
+                onPress={() => setShowHelpModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={22} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.helpModalHint}>
+              Need help while we search for a captain? Call our help desk.
+            </Text>
+            {HELP_LINES.map((line, index) => (
+              <TouchableOpacity
+                key={line.phone}
+                style={[styles.helpCallRow, index === HELP_LINES.length - 1 && { borderBottomWidth: 0 }]}
+                onPress={() => callHelpLine(line.phone)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.helpCallIcon}>
+                  <Ionicons name="call" size={16} color="#FFF" />
+                </View>
+                <View style={styles.helpCallTextContainer}>
+                  <Text style={styles.helpCallLabel}>{line.label}</Text>
+                  <Text style={styles.helpCallNumber}>{line.display}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#CCC" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
 
       {/* Cancel Reason Modal */}
       <Modal visible={showCancelModal} transparent animationType="fade" onRequestClose={() => setShowCancelModal(false)}>
@@ -488,27 +549,53 @@ const styles = StyleSheet.create({
   detailsSection: { paddingHorizontal: Spacing.lg },
 
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexShrink: 1 },
   statusText: { color: '#FFF', fontSize: FontSizes.sm, fontWeight: FontWeights.bold, marginLeft: 6 },
   etaBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3E8FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   etaText: { fontSize: FontSizes.xs, fontWeight: FontWeights.bold, color: Colors.primary, marginLeft: 4 },
+  helpChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  helpChipText: { fontSize: FontSizes.sm, fontWeight: FontWeights.bold, color: '#166534' },
 
   // Pending
   pendingContainer: { alignItems: 'center', paddingVertical: Spacing.sm },
-  pulseCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
+  pulseCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
+  pendingTitle: {
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.bold,
+    color: '#111',
+    textAlign: 'center',
+  },
+  pendingSubtitle: {
+    fontSize: FontSizes.sm,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+  },
   liveStats: { flexDirection: 'row', backgroundColor: '#F8F9FA', borderRadius: 12, padding: Spacing.md, width: '100%' },
   statBox: { flex: 1, alignItems: 'center' },
   statNumber: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.primary },
   statLabel: { fontSize: FontSizes.xs, color: '#666', marginTop: 2 },
   statDivider: { width: 1, backgroundColor: '#E0E0E0', marginHorizontal: 8 },
 
-  // No drivers / help desk
-  noDriversContainer: { alignItems: 'center', paddingVertical: Spacing.sm },
-  noDriversTitle: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#333', marginTop: Spacing.sm },
-  noDriversSubtext: { fontSize: FontSizes.sm, color: '#666', textAlign: 'center', marginTop: 4, marginBottom: Spacing.md },
-  helpDeskContainer: { width: '100%', backgroundColor: '#F8F9FA', borderRadius: 12, padding: Spacing.sm },
-  helpCallRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, paddingHorizontal: Spacing.sm, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  helpCallIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#4CAF50', alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
+  // Help modal rows
+  helpModalContent: { backgroundColor: '#FFF', borderRadius: 16, padding: Spacing.lg, width: '100%' },
+  helpModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
+  helpModalTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: '#000', flex: 1 },
+  helpModalHint: { fontSize: FontSizes.sm, color: '#666', marginBottom: Spacing.md },
+  helpCallRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  helpCallIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
   helpCallTextContainer: { flex: 1 },
   helpCallLabel: { fontSize: FontSizes.xs, color: '#888', fontWeight: FontWeights.medium, marginBottom: 2 },
   helpCallNumber: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#000', letterSpacing: 0.5 },
@@ -527,11 +614,11 @@ const styles = StyleSheet.create({
 
   // Locations
   locationsCard: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: Spacing.md, marginBottom: Spacing.md },
-  locRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  locDot: { width: 10, height: 10, borderRadius: 5, marginRight: Spacing.md },
+  locRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Spacing.sm },
+  locDot: { width: 10, height: 10, borderRadius: 5, marginRight: Spacing.md, marginTop: 5 },
   locTextContainer: { flex: 1 },
-  locLabel: { fontSize: FontSizes.xs, color: '#999' },
-  locAddress: { fontSize: FontSizes.sm, color: '#000', fontWeight: FontWeights.medium },
+  locLabel: { fontSize: FontSizes.xs, color: '#999', marginBottom: 2 },
+  locAddress: { fontSize: FontSizes.sm, color: '#000', fontWeight: FontWeights.medium, lineHeight: 18 },
 
   // Info row
   infoRow: { flexDirection: 'row', marginBottom: Spacing.md, gap: 8 },

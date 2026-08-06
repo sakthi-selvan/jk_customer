@@ -19,7 +19,7 @@ export const OfflineBanner: React.FC = () => {
   return (
     <View style={[styles.banner, { paddingTop: Math.max(insets.top, 8) }]}>
       <Ionicons name="cloud-offline-outline" size={16} color={Colors.white} />
-      <Text style={styles.text}>You are offline. Some actions may not work.</Text>
+      <Text style={styles.text}>Can't reach JK Taxi servers. Check your connection.</Text>
     </View>
   );
 };

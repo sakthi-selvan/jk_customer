@@ -40,9 +40,14 @@ export const bookingEnhancedApi = {
     return response.data;
   },
 
-  // Get active ride
-  getActiveRide: async (): Promise<EnhancedRide> => {
-    const response = await apiClient.get<EnhancedRide>('/api/v2/bookings/active');
+  // Get active ride — 204 means none (normal), not an error / offline
+  getActiveRide: async (): Promise<EnhancedRide | null> => {
+    const response = await apiClient.get<EnhancedRide>('/api/v2/bookings/active', {
+      validateStatus: (status) => (status >= 200 && status < 300) || status === 404,
+    });
+    if (response.status === 204 || response.status === 404 || !response.data) {
+      return null;
+    }
     return response.data;
   },
 

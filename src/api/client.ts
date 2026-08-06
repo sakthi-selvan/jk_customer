@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import { API_CONFIG } from '../config';
 import { router } from 'expo-router';
 import storage from '../utils/storage';
+import { connectivity } from '../services/connectivity';
 
 const IS_DEV = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
 
@@ -47,9 +48,20 @@ class ApiClient {
     );
 
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Any HTTP response means the app can reach the API
+        connectivity.noteReachable();
+        return response;
+      },
       async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+        // Server answered (incl. 404 "no active ride") → we are NOT offline
+        if (error.response) {
+          connectivity.noteReachable();
+        } else {
+          connectivity.noteUnreachable();
+        }
 
         if (error.response?.status === 401 && !originalRequest._retry) {
           if (originalRequest.url?.includes('/auth/refresh')) {
@@ -99,8 +111,10 @@ class ApiClient {
           }
         }
 
-        const isNoActiveRide = error.response?.status === 404 &&
-          error.config?.url?.includes('/active');
+        // 404 on /active = no ride booked — expected, not an API/network failure
+        const isNoActiveRide =
+          error.response?.status === 404 &&
+          !!error.config?.url?.includes('/bookings/active');
         if (!isNoActiveRide && error.response?.status !== 401 && IS_DEV) {
           console.warn('[API ERROR]', error.response?.status, error.config?.url);
         }

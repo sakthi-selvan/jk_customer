@@ -19,6 +19,7 @@ import { SimpleMap } from '../src/components/map/SimpleMap';
 import { Button } from '../src/components/common/Button';
 import { Card } from '../src/components/common/Card';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
+import { VehicleCategoryImage } from '../src/components/ride/VehicleCategoryImage';
 import { bookingEnhancedApi } from '../src/api/booking-enhanced';
 import { VehicleCategory, TripType, FareBreakdown } from '../src/types/enhanced';
 
@@ -363,9 +364,13 @@ export default function BookRideCompleteScreen() {
                 ]}
                 onPress={() => setSelectedVehicle(vehicle.type)}
               >
-                <View style={[styles.vehicleIconContainer, { backgroundColor: vehicle.color + '20' }]}>
-                  <Ionicons name={vehicle.icon as any} size={32} color={vehicle.color} />
-                </View>
+                <VehicleCategoryImage
+                  type={vehicle.type}
+                  width={80}
+                  height={56}
+                  fallbackIcon={vehicle.icon}
+                  fallbackColor={vehicle.color}
+                />
                 <View style={styles.vehicleDetails}>
                   <Text style={styles.vehicleName}>{vehicle.name}</Text>
                   <Text style={styles.vehicleCapacity}>{vehicle.capacity}</Text>
@@ -923,13 +928,6 @@ const styles = StyleSheet.create({
   vehicleCardActive: {
     borderColor: Colors.primary,
     backgroundColor: '#F0F9FF',
-  },
-  vehicleIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   vehicleDetails: {
     flex: 1,

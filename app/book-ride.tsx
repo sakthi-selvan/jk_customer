@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { LocationSearchInput, LocationResult, LocationSearchInputRef } from '../src/components/map/LocationSearchInput';
+import { VehicleCategoryImage } from '../src/components/ride/VehicleCategoryImage';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { bookingEnhancedApi, userEnhancedApi } from '../src/api/booking-enhanced';
 import { VehicleCategory, TripType, FareBreakdown, RidePreferences, StopLocation, SavedPlaces } from '../src/types/enhanced';
@@ -409,7 +410,7 @@ export default function BookRideScreen() {
       Alert.alert(
         'Ride Booked!',
         `Your ${vehicleOptions.find(v => v.type === selectedVehicle)?.name || selectedVehicle} is on the way.\n\nShare your OTP with the driver to start the ride.`,
-        [{ text: 'View Rides', onPress: () => router.replace('/rides') }]
+        [{ text: 'Track Ride', onPress: () => router.replace('/') }]
       );
     } catch (error: any) {
       const msg = error.response?.data?.detail || error.message || 'Failed to book ride';
@@ -581,9 +582,11 @@ export default function BookRideScreen() {
             style={[styles.vehicleCard, selectedVehicle === v.type && styles.vehicleCardSelected]}
             onPress={() => setSelectedVehicle(v.type as VehicleCategory)}
           >
-            <View style={[styles.vehicleIcon, { backgroundColor: v.color + '15' }]}>
-              <Ionicons name={v.icon as any} size={26} color={v.color} />
-            </View>
+            <VehicleCategoryImage
+              type={String(v.type)}
+              fallbackIcon={v.icon}
+              fallbackColor={v.color}
+            />
             <View style={styles.vehicleInfo}>
               <Text style={styles.vehicleName}>{v.name}</Text>
               <Text style={styles.vehicleMeta}>
@@ -926,7 +929,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#F0F0F0',
   },
   vehicleCardSelected: { borderColor: Colors.primary, backgroundColor: '#FAFBFF' },
-  vehicleIcon: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   vehicleInfo: { flex: 1, marginLeft: Spacing.md },
   vehicleName: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#000' },
   vehicleMeta: { fontSize: FontSizes.xs, color: '#666', marginTop: 2 },

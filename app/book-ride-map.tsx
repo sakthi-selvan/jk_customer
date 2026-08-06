@@ -17,6 +17,7 @@ import { RouteMapView } from '../src/components/map/RouteMapView';
 import { Button } from '../src/components/common/Button';
 import { Card } from '../src/components/common/Card';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
+import { VehicleCategoryImage } from '../src/components/ride/VehicleCategoryImage';
 import { bookingEnhancedApi } from '../src/api/booking-enhanced';
 import { VehicleCategory, TripType, FareBreakdown } from '../src/types/enhanced';
 
@@ -246,20 +247,15 @@ export default function BookRideMapScreen() {
                   onPress={() => setSelectedVehicle(vehicle.type)}
                 >
                   <View style={styles.vehicleCardLeft}>
-                    <View
-                      style={[
-                        styles.vehicleIcon,
-                        selectedVehicle === vehicle.type && styles.vehicleIconSelected,
-                      ]}
-                    >
-                      <Ionicons
-                        name={vehicle.icon}
-                        size={28}
-                        color={
-                          selectedVehicle === vehicle.type ? Colors.white : Colors.primary
-                        }
-                      />
-                    </View>
+                    <VehicleCategoryImage
+                      type={vehicle.type}
+                      width={72}
+                      height={52}
+                      fallbackIcon={vehicle.icon}
+                      fallbackColor={
+                        selectedVehicle === vehicle.type ? Colors.primary : Colors.primary
+                      }
+                    />
                     <View style={styles.vehicleInfo}>
                       <Text style={styles.vehicleName}>{vehicle.name}</Text>
                       <Text style={styles.vehicleCapacity}>{vehicle.capacity}</Text>
@@ -403,17 +399,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-  },
-  vehicleIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.full,
-    backgroundColor: '#F0F9FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vehicleIconSelected: {
-    backgroundColor: Colors.primary,
   },
   vehicleInfo: {
     marginLeft: Spacing.md,
