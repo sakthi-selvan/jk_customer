@@ -15,13 +15,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 import { authApi } from '../src/api/auth';
+import storage from '../src/utils/storage';
 import { Button } from '../src/components/common/Button';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
+
+const GENDERS = ['Male', 'Female', 'Other', 'Prefer not to say'] as const;
 
 export default function EditProfileScreen() {
   const { user } = useAuthStore();
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [age, setAge] = useState(user?.age != null ? String(user.age) : '');
+  const [gender, setGender] = useState(user?.gender || '');
   const [emergencyContactName, setEmergencyContactName] = useState(
     user?.emergency_contact_name || ''
   );
@@ -33,6 +38,12 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Validation Error', 'Name is required');
+      return;
+    }
+
+    const ageNum = age.trim() ? parseInt(age.trim(), 10) : undefined;
+    if (age.trim() && (Number.isNaN(ageNum!) || ageNum! < 13 || ageNum! > 120)) {
+      Alert.alert('Invalid Age', 'Please enter a valid age between 13 and 120');
       return;
     }
 
@@ -54,22 +65,19 @@ export default function EditProfileScreen() {
       const updatedUser = await authApi.updateProfile({
         name: name.trim(),
         email: email.trim() || undefined,
+        age: ageNum,
+        gender: gender || undefined,
         emergency_contact_name: emergencyContactName.trim(),
         emergency_contact_phone: emergencyContactPhone.trim(),
       });
 
-      // Update local storage
       const { user: currentUser } = useAuthStore.getState();
       const updatedUserData = { ...currentUser, ...updatedUser };
-
-      // Refresh the auth store
+      await storage.setItem('user', JSON.stringify(updatedUserData));
       useAuthStore.setState({ user: updatedUserData });
 
       Alert.alert('Success', 'Profile updated successfully', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
+        { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error: any) {
       Alert.alert(
@@ -83,7 +91,6 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
@@ -100,8 +107,8 @@ export default function EditProfileScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Avatar */}
           <View style={styles.avatarSection}>
             <View style={styles.avatar}>
               <Ionicons name="person" size={56} color={Colors.primary} />
@@ -112,7 +119,6 @@ export default function EditProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Personal Information */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Ionicons name="person-circle-outline" size={24} color={Colors.primary} />
@@ -167,24 +173,58 @@ export default function EditProfileScreen() {
                   />
                 </View>
               </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Age</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="calendar-outline" size={20} color="#999" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={age}
+                    onChangeText={setAge}
+                    placeholder="Your age"
+                    placeholderTextColor="#999"
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Gender</Text>
+                <View style={styles.genderRow}>
+                  {GENDERS.map((g) => (
+                    <TouchableOpacity
+                      key={g}
+                      style={[styles.genderChip, gender === g && styles.genderChipActive]}
+                      onPress={() => setGender(g)}
+                      activeOpacity={0.85}
+                    >
+                      <Text
+                        style={[
+                          styles.genderChipText,
+                          gender === g && styles.genderChipTextActive,
+                        ]}
+                      >
+                        {g}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </View>
           </View>
 
-          {/* Emergency Contact */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Ionicons name="shield-checkmark" size={24} color="#EF4444" />
-              <Text style={[styles.sectionTitle, { color: '#EF4444' }]}>
-                Emergency Contact
-              </Text>
+              <Text style={[styles.sectionTitle, { color: '#EF4444' }]}>Emergency Contact</Text>
             </View>
 
             <View style={[styles.card, styles.emergencyCard]}>
               <View style={styles.alertBanner}>
                 <Ionicons name="information-circle" size={20} color="#3B82F6" />
-                <Text style={styles.alertText}>
-                  Required for your safety during rides
-                </Text>
+                <Text style={styles.alertText}>Required for your safety during rides</Text>
               </View>
 
               <View style={styles.inputGroup}>
@@ -192,7 +232,12 @@ export default function EditProfileScreen() {
                   Contact Name <Text style={styles.required}>*</Text>
                 </Text>
                 <View style={styles.inputContainer}>
-                  <Ionicons name="person-add-outline" size={20} color="#999" style={styles.inputIcon} />
+                  <Ionicons
+                    name="person-add-outline"
+                    size={20}
+                    color="#999"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     value={emergencyContactName}
@@ -227,7 +272,6 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          {/* Save Button */}
           <View style={styles.buttonContainer}>
             <Button
               title={isLoading ? 'Saving...' : 'Save Changes'}
@@ -247,10 +291,7 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -261,31 +302,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: FontSizes.xl,
-    fontWeight: FontWeights.bold,
-    color: '#000',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.md,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginTop: Spacing.xl,
-    marginBottom: Spacing.xl,
-  },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: '#000' },
+  keyboardView: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: Spacing.md },
+  avatarSection: { alignItems: 'center', marginTop: Spacing.xl, marginBottom: Spacing.xl },
   avatar: {
     width: 100,
     height: 100,
@@ -311,14 +333,8 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.semibold,
     marginLeft: Spacing.xs,
   },
-  section: {
-    marginBottom: Spacing.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
+  section: { marginBottom: Spacing.lg },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
   sectionTitle: {
     fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
@@ -335,10 +351,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  emergencyCard: {
-    borderWidth: 2,
-    borderColor: '#FEE2E2',
-  },
+  emergencyCard: { borderWidth: 2, borderColor: '#FEE2E2' },
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -347,24 +360,15 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.lg,
   },
-  alertText: {
-    fontSize: FontSizes.sm,
-    color: '#1E40AF',
-    marginLeft: Spacing.sm,
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: Spacing.md,
-  },
+  alertText: { fontSize: FontSizes.sm, color: '#1E40AF', marginLeft: Spacing.sm, flex: 1 },
+  inputGroup: { marginBottom: Spacing.md },
   label: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
     color: '#000',
     marginBottom: Spacing.sm,
   },
-  required: {
-    color: '#EF4444',
-  },
+  required: { color: '#EF4444' },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -374,29 +378,34 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
   },
-  disabledInput: {
-    backgroundColor: '#F3F4F6',
-    opacity: 0.7,
-  },
-  inputIcon: {
-    marginRight: Spacing.sm,
-  },
-  input: {
-    flex: 1,
-    fontSize: FontSizes.md,
-    color: '#000',
-    paddingVertical: Spacing.md,
-  },
+  disabledInput: { backgroundColor: '#F3F4F6', opacity: 0.7 },
+  inputIcon: { marginRight: Spacing.sm },
+  input: { flex: 1, fontSize: FontSizes.md, color: '#000', paddingVertical: Spacing.md },
   helperText: {
     fontSize: FontSizes.xs,
     color: '#666',
     marginTop: Spacing.xs,
     marginLeft: Spacing.xs,
   },
-  buttonContainer: {
-    marginTop: Spacing.md,
+  genderRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  genderChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
   },
-  saveButton: {
-    backgroundColor: Colors.primary,
+  genderChipActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '18',
   },
+  genderChipText: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textSecondary,
+  },
+  genderChipTextActive: { color: Colors.primary },
+  buttonContainer: { marginTop: Spacing.md },
+  saveButton: { backgroundColor: Colors.primary },
 });

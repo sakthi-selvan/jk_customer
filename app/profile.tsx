@@ -150,7 +150,7 @@ export default function ProfileScreen() {
             <MenuItem
               icon="person-outline"
               title="Edit Profile"
-              subtitle="Name, Email, Emergency Contact"
+              subtitle="Name, Age, Gender, Email, Emergency Contact"
               onPress={() => router.push('/edit-profile')}
               iconColor="#8B5CF6"
               iconBg="#F3E8FF"
@@ -191,7 +191,7 @@ export default function ProfileScreen() {
               icon="notifications-outline"
               title="Notifications"
               subtitle="Push notifications, SMS alerts"
-              onPress={() => Alert.alert('Coming Soon', 'Notification settings')}
+              onPress={() => router.push('/notifications')}
               iconColor="#F59E0B"
               iconBg="#FEF3C7"
             />
@@ -202,7 +202,7 @@ export default function ProfileScreen() {
               icon="shield-outline"
               title="Privacy & Safety"
               subtitle="Data privacy, security settings"
-              onPress={() => Alert.alert('Coming Soon', 'Privacy settings')}
+              onPress={() => router.push('/privacy')}
               iconColor="#EF4444"
               iconBg="#FEE2E2"
             />
@@ -229,7 +229,7 @@ export default function ProfileScreen() {
               icon="help-circle-outline"
               title="Help Center"
               subtitle="FAQs, How-to guides"
-              onPress={() => Alert.alert('Coming Soon', 'Help center')}
+              onPress={() => router.push('/help-center')}
               iconColor="#8B5CF6"
               iconBg="#F3E8FF"
             />
@@ -240,7 +240,7 @@ export default function ProfileScreen() {
               icon="chatbubble-outline"
               title="Contact Support"
               subtitle="Chat with our team"
-              onPress={() => Alert.alert('Coming Soon', 'Contact support')}
+              onPress={() => router.push('/contact-support')}
               iconColor="#06B6D4"
               iconBg="#CFFAFE"
             />
@@ -251,7 +251,7 @@ export default function ProfileScreen() {
               icon="document-text-outline"
               title="Terms & Privacy Policy"
               subtitle="Legal information"
-              onPress={() => Alert.alert('Coming Soon', 'Terms and privacy policy')}
+              onPress={() => router.push('/terms')}
               iconColor="#6B7280"
               iconBg="#F3F4F6"
             />

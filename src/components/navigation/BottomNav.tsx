@@ -21,7 +21,17 @@ const TABS: Array<{
 
 function activeKey(pathname: string): TabKey {
   if (pathname.includes('rides')) return 'rides';
-  if (pathname.includes('profile') || pathname.includes('edit-profile')) return 'profile';
+  if (
+    pathname.includes('profile') ||
+    pathname.includes('edit-profile') ||
+    pathname.includes('notifications') ||
+    pathname.includes('privacy') ||
+    pathname.includes('help-center') ||
+    pathname.includes('contact-support') ||
+    pathname.includes('terms')
+  ) {
+    return 'profile';
+  }
   return 'home';
 }
 
