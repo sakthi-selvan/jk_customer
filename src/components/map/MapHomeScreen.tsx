@@ -69,12 +69,60 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const floatingBarOpacity = useRef(new Animated.Value(1)).current;
   const [fleetFilter, setFleetFilter] = useState<FleetCategory>('all');
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [searchingNearbyPins, setSearchingNearbyPins] = useState<
+    Array<{ id: string; latitude: number; longitude: number; category: string; heading?: number | null }>
+  >([]);
   const menuSlideAnim = useRef(new Animated.Value(-320)).current;
 
   useEffect(() => {
     getUserLocation();
     fetchRecentAndSaved();
   }, []);
+
+  // While searching, show real nearby captains on the tracking map (same UX as fleet map).
+  useEffect(() => {
+    if (!activeRide || activeRide.status !== 'pending') {
+      setSearchingNearbyPins([]);
+      return;
+    }
+    const pickupLat = (activeRide as any).pickup_lat;
+    const pickupLng = (activeRide as any).pickup_lng;
+    if (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLng)) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await bookingEnhancedApi.getNearbyDriversLocations(pickupLat, pickupLng, {
+          vehicle_category: (activeRide as any).vehicle_category || undefined,
+        });
+        if (cancelled) return;
+        setSearchingNearbyPins(
+          (res.drivers || []).map((d) => ({
+            id: d.id,
+            latitude: d.latitude,
+            longitude: d.longitude,
+            category: (d as any).category || d.vehicle_type || 'mini',
+            heading: (d as any).heading ?? null,
+          }))
+        );
+      } catch {
+        if (!cancelled) setSearchingNearbyPins([]);
+      }
+    };
+    load();
+    const t = setInterval(load, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [activeRide?.id, activeRide?.status, (activeRide as any)?.vehicle_category]);
+
+  // Clear ETA when ride leaves live tracking
+  useEffect(() => {
+    if (!activeRide || !['pending', 'accepted', 'started'].includes(activeRide.status)) {
+      setLiveEta(null);
+    }
+  }, [activeRide?.id, activeRide?.status]);
 
   const fetchRecentAndSaved = async () => {
     try {
@@ -300,12 +348,13 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
       {/* Map: tracking view or normal */}
       {isTrackingRide ? (
         <RideTrackingMap
-          key={`${activeRide.id}-${activeRide.status}`}
+          key={String(activeRide.id)}
           rideStatus={activeRide.status as 'pending' | 'accepted' | 'started'}
           pickupLocation={{ latitude: (activeRide as any).pickup_lat, longitude: (activeRide as any).pickup_lng }}
           dropoffLocation={(activeRide as any).dropoff_lat ? { latitude: (activeRide as any).dropoff_lat, longitude: (activeRide as any).dropoff_lng } : null}
           driverLocation={driverLocation}
-          vehicleCategory={(activeRide as any).vehicle_category}
+          vehicleCategory={(activeRide as any).vehicle_category || (activeRide as any).driver_vehicle_type}
+          nearbyPins={activeRide.status === 'pending' ? searchingNearbyPins : undefined}
           onEtaUpdate={(dist, dur) => setLiveEta({ distance: dist, duration: dur })}
         />
       ) : (

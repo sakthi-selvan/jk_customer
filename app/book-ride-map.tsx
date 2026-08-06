@@ -19,11 +19,13 @@ import { Card } from '../src/components/common/Card';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { VehicleCategoryImage } from '../src/components/ride/VehicleCategoryImage';
 import { bookingEnhancedApi } from '../src/api/booking-enhanced';
+import { useRideStore } from '../src/store/rideStore';
 import { VehicleCategory, TripType, FareBreakdown } from '../src/types/enhanced';
 
 const { height } = Dimensions.get('window');
 
 export default function BookRideMapScreen() {
+  const getActiveRide = useRideStore((s) => s.getActiveRide);
   const [step, setStep] = useState<'location' | 'vehicle'>('location');
 
   // Location state
@@ -99,15 +101,11 @@ export default function BookRideMapScreen() {
         },
       });
 
+      await getActiveRide();
       Alert.alert(
         'Ride Booked!',
-        `Your ride has been booked successfully. Ride ID: ${ride.id}`,
-        [
-          {
-            text: 'View Ride',
-            onPress: () => router.replace('/rides'),
-          },
-        ]
+        'Searching for nearby captains. Track your ride on the map.',
+        [{ text: 'Track Ride', onPress: () => router.replace('/') }]
       );
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to book ride');

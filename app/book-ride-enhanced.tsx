@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { bookingEnhancedApi, userEnhancedApi } from '../src/api/booking-enhanced';
+import { useRideStore } from '../src/store/rideStore';
 import { Button } from '../src/components/common/Button';
 import { Card } from '../src/components/common/Card';
 import { VehicleCategoryImage } from '../src/components/ride/VehicleCategoryImage';
@@ -27,6 +28,7 @@ import {
 } from '../src/types/enhanced';
 
 export default function BookRideEnhancedScreen() {
+  const getActiveRide = useRideStore((s) => s.getActiveRide);
   // Step state
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -213,15 +215,11 @@ export default function BookRideEnhancedScreen() {
 
       const ride = await bookingEnhancedApi.createBooking(bookingData);
 
+      await getActiveRide();
       Alert.alert(
-        'Booking Confirmed! 🎉',
-        `Your ride has been booked successfully.\n\nLooking for nearby drivers...\n\nYou'll be notified once a driver accepts.`,
-        [
-          {
-            text: 'View Ride',
-            onPress: () => router.replace('/rides'),
-          },
-        ]
+        'Booking Confirmed',
+        'Looking for nearby captains. Track your ride on the map.',
+        [{ text: 'Track Ride', onPress: () => router.replace('/') }]
       );
     } catch (error: any) {
       let errorMessage = 'Failed to book ride. Please try again.';

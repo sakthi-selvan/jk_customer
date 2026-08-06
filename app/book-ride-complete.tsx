@@ -21,6 +21,7 @@ import { Card } from '../src/components/common/Card';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { VehicleCategoryImage } from '../src/components/ride/VehicleCategoryImage';
 import { bookingEnhancedApi } from '../src/api/booking-enhanced';
+import { useRideStore } from '../src/store/rideStore';
 import { VehicleCategory, TripType, FareBreakdown } from '../src/types/enhanced';
 
 type BookingStep = 'location' | 'trip_type' | 'vehicle' | 'details' | 'confirm';
@@ -62,6 +63,7 @@ const VEHICLE_OPTIONS = [
 ];
 
 export default function BookRideCompleteScreen() {
+  const getActiveRide = useRideStore((s) => s.getActiveRide);
   const [step, setStep] = useState<BookingStep>('location');
   const [loading, setLoading] = useState(false);
 
@@ -187,24 +189,11 @@ export default function BookRideCompleteScreen() {
         preferences,
       });
 
+      await getActiveRide();
       Alert.alert(
-        'Ride Booked Successfully! 🎉',
-        `Your ${TRIP_TYPES.find(t => t.id === tripType)?.name} ride is confirmed.\n\nRide OTP: ${ride.ride_otp}\n\nShare this OTP with your driver.`,
-        [
-          {
-            text: 'View Rides',
-            onPress: () => router.replace('/rides'),
-          },
-          {
-            text: 'Book Another',
-            onPress: () => {
-              setStep('location');
-              setPickupLocation(null);
-              setDropoffLocation(null);
-              setFareBreakdown(null);
-            },
-          },
-        ]
+        'Ride Booked Successfully',
+        `Your ${TRIP_TYPES.find(t => t.id === tripType)?.name} ride is confirmed.\n\nShare your Ride OTP with the captain when they arrive.`,
+        [{ text: 'Track Ride', onPress: () => router.replace('/') }]
       );
     } catch (error: any) {
       Alert.alert('Booking Failed', error.response?.data?.detail || 'Failed to book ride');

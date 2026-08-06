@@ -32,8 +32,14 @@ interface RideTrackingMapProps {
   driverLocation: Location | null;
   vehicleCategory?: string;
   onEtaUpdate?: (distanceKm: number, durationMin: number) => void;
-  /** Optional nearby captain pins (UI preview / searching). */
-  nearbyPins?: Array<{ id: string; latitude: number; longitude: number; category: string }>;
+  /** Nearby captains while searching (pending). */
+  nearbyPins?: Array<{
+    id: string;
+    latitude: number;
+    longitude: number;
+    category: string;
+    heading?: number | null;
+  }>;
 }
 
 interface RouteData {
@@ -71,7 +77,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
   const routeTarget: Location | null = useMemo(() => {
     if (rideStatus === 'accepted') return pickupLocation;
     if (rideStatus === 'started' && dropoffLocation) return dropoffLocation;
-    // pending: preview trip if dropoff exists
+    // pending: trip overview if dropoff exists
     if (rideStatus === 'pending' && dropoffLocation) return dropoffLocation;
     return null;
   }, [
@@ -303,7 +309,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           />
         )}
 
-        {/* Pending: simple preview line (no progress split) */}
+        {/* Pending: trip overview line (pickup → drop) */}
         {rideStatus === 'pending' && remaining && remaining.length >= 2 && (
           <RouteProgressLayers
             travelled={null}
@@ -374,7 +380,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
               allowOverlap
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <VehicleMarker category={pin.category} size={32} />
+              <VehicleMarker category={pin.category} size={32} heading={pin.heading} />
             </Mapbox.MarkerView>
           ))}
       </Mapbox.MapView>
