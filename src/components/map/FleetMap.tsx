@@ -122,7 +122,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
             coordinate={[d.longitude, d.latitude]}
             title={d.category}
           >
-            <VehicleMarker category={d.category} size={34} />
+            <VehicleMarker category={d.category} size={42} />
           </Mapbox.PointAnnotation>
         ))}
       </MapView>

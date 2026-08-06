@@ -1,12 +1,20 @@
 /**
- * Distinct map markers per vehicle category (bike / auto / car types).
- * Avoids a single generic car placeholder for all fleets.
+ * Top-down vehicle markers for the map (Google Maps / Uber style).
  */
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, ImageSourcePropType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export type FleetCategory = 'all' | 'bike' | 'auto' | 'mini' | 'sedan' | 'suv' | 'other';
+
+const TOP_VIEW: Record<string, ImageSourcePropType> = {
+  bike: require('../../../assets/map_markers/bike.png'),
+  auto: require('../../../assets/map_markers/auto.png'),
+  mini: require('../../../assets/map_markers/mini.png'),
+  sedan: require('../../../assets/map_markers/sedan.png'),
+  suv: require('../../../assets/map_markers/suv.png'),
+  other: require('../../../assets/map_markers/mini.png'),
+};
 
 export const FLEET_FILTERS: Array<{
   id: FleetCategory;
@@ -22,16 +30,13 @@ export const FLEET_FILTERS: Array<{
   { id: 'suv', label: 'SUV', icon: 'car', color: '#F59E0B' },
 ];
 
-const STYLE: Record<
-  string,
-  { icon: keyof typeof Ionicons.glyphMap; bg: string; label: string; shape: 'circle' | 'rounded' | 'pill' }
-> = {
-  bike: { icon: 'bicycle', bg: '#F97316', label: 'B', shape: 'pill' },
-  auto: { icon: 'bus', bg: '#EAB308', label: 'A', shape: 'rounded' },
-  mini: { icon: 'car-outline', bg: '#22C55E', label: 'M', shape: 'circle' },
-  sedan: { icon: 'car-sport-outline', bg: '#3B82F6', label: 'S', shape: 'circle' },
-  suv: { icon: 'car', bg: '#F59E0B', label: 'V', shape: 'circle' },
-  other: { icon: 'car', bg: '#64748B', label: '?', shape: 'circle' },
+const STYLE: Record<string, { label: string; color: string }> = {
+  bike: { label: 'Bike', color: '#F97316' },
+  auto: { label: 'Auto', color: '#EAB308' },
+  mini: { label: 'Mini', color: '#22C55E' },
+  sedan: { label: 'Sedan', color: '#3B82F6' },
+  suv: { label: 'SUV', color: '#F59E0B' },
+  other: { label: 'Other', color: '#64748B' },
 };
 
 /** Map driver.vehicle_type string → fleet category */
@@ -50,13 +55,18 @@ export function normalizeFleetCategory(vehicleType?: string | null): FleetCatego
 interface VehicleMarkerProps {
   category: FleetCategory | string;
   size?: number;
+  /** Degrees clockwise from north (0 = facing up on map). */
+  heading?: number | null;
 }
 
-export const VehicleMarker: React.FC<VehicleMarkerProps> = ({ category, size = 36 }) => {
-  const key = (STYLE[category] ? category : normalizeFleetCategory(category)) as string;
-  const cfg = STYLE[key] || STYLE.other;
-  const radius =
-    cfg.shape === 'pill' ? size / 2.5 : cfg.shape === 'rounded' ? 8 : size / 2;
+export const VehicleMarker: React.FC<VehicleMarkerProps> = ({
+  category,
+  size = 44,
+  heading = null,
+}) => {
+  const key = (TOP_VIEW[category] ? category : normalizeFleetCategory(category)) as string;
+  const source = TOP_VIEW[key] || TOP_VIEW.other;
+  const rotation = typeof heading === 'number' && Number.isFinite(heading) ? heading : 0;
 
   return (
     <View
@@ -65,12 +75,11 @@ export const VehicleMarker: React.FC<VehicleMarkerProps> = ({ category, size = 3
         {
           width: size,
           height: size,
-          borderRadius: radius,
-          backgroundColor: cfg.bg,
+          transform: [{ rotate: `${rotation}deg` }],
         },
       ]}
     >
-      <Ionicons name={cfg.icon} size={size * 0.5} color="#FFF" />
+      <Image source={source} style={{ width: size, height: size }} resizeMode="contain" />
     </View>
   );
 };
@@ -79,8 +88,8 @@ export const VehicleMarkerLegend: React.FC<{ category: FleetCategory }> = ({ cat
   const cfg = STYLE[category] || STYLE.other;
   return (
     <View style={styles.legendRow}>
-      <VehicleMarker category={category} size={22} />
-      <Text style={styles.legendText}>{cfg.label === '?' ? 'Other' : category}</Text>
+      <VehicleMarker category={category} size={28} />
+      <Text style={styles.legendText}>{cfg.label}</Text>
     </View>
   );
 };
@@ -89,13 +98,6 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2.5,
-    borderColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
   },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { fontSize: 12, color: '#334155', textTransform: 'capitalize' },

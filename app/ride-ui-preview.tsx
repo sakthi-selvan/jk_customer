@@ -42,13 +42,29 @@ export default function RideUiPreviewScreen() {
   const driverLocation = useMemo(() => {
     if (phase === 'searching') return null;
     if (phase === 'accepted') {
-      return interpolateLocation(DRIVER_START, PREVIEW_PICKUP, progress);
+      const loc = interpolateLocation(DRIVER_START, PREVIEW_PICKUP, progress);
+      // Bearing toward pickup (approx) for marker rotation
+      const heading =
+        (Math.atan2(
+          PREVIEW_PICKUP.longitude - DRIVER_START.longitude,
+          PREVIEW_PICKUP.latitude - DRIVER_START.latitude
+        ) *
+          180) /
+        Math.PI;
+      return { ...loc, heading: (heading + 360) % 360 };
     }
     if (phase === 'started') {
-      return interpolateLocation(PREVIEW_PICKUP, PREVIEW_DROPOFF, progress);
+      const loc = interpolateLocation(PREVIEW_PICKUP, PREVIEW_DROPOFF, progress);
+      const heading =
+        (Math.atan2(
+          PREVIEW_DROPOFF.longitude - PREVIEW_PICKUP.longitude,
+          PREVIEW_DROPOFF.latitude - PREVIEW_PICKUP.latitude
+        ) *
+          180) /
+        Math.PI;
+      return { ...loc, heading: (heading + 360) % 360 };
     }
-    // completed — at drop
-    return { latitude: PREVIEW_DROPOFF.latitude, longitude: PREVIEW_DROPOFF.longitude };
+    return { latitude: PREVIEW_DROPOFF.latitude, longitude: PREVIEW_DROPOFF.longitude, heading: 0 };
   }, [phase, progress]);
 
   const mapStatus: 'pending' | 'accepted' | 'started' =

@@ -22,6 +22,7 @@ try {
 interface Location {
   latitude: number;
   longitude: number;
+  heading?: number | null;
 }
 
 interface RideTrackingMapProps {
@@ -325,7 +326,11 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
             coordinate={[driverLocation.longitude, driverLocation.latitude]}
             title="Captain"
           >
-            <VehicleMarker category={vehicleCategory || 'mini'} size={38} />
+            <VehicleMarker
+              category={vehicleCategory || 'mini'}
+              size={48}
+              heading={driverLocation.heading}
+            />
           </Mapbox.PointAnnotation>
         )}
 
@@ -337,7 +342,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
               coordinate={[pin.longitude, pin.latitude]}
               title={pin.category}
             >
-              <VehicleMarker category={pin.category} size={32} />
+              <VehicleMarker category={pin.category} size={40} />
             </Mapbox.PointAnnotation>
           ))}
       </Mapbox.MapView>
