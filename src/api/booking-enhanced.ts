@@ -36,7 +36,7 @@ export const bookingEnhancedApi = {
 
   // Create booking
   createBooking: async (data: BookingCreateRequest): Promise<EnhancedRide> => {
-    const response = await apiClient.post<EnhancedRide>('/api/v2/bookings', data);
+    const response = await apiClient.post<EnhancedRide>('/api/v2/bookings/', data);
     return response.data;
   },
 
