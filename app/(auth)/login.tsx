@@ -207,8 +207,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   logo: {
-    width: 180,
-    height: 120,
+    width: 140,
+    height: 140,
     marginBottom: Spacing.md,
   },
   subtitle: {

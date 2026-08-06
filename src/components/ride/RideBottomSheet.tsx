@@ -49,6 +49,33 @@ const formatFare = (value?: number | null) =>
 const formatDistance = (value?: number | null) =>
   typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)} km` : '—';
 
+/** Trip duration for UI — prefer live ETA, then ride.eta_minutes, then distance estimate. */
+const resolveTripMinutes = (
+  ride: EnhancedRide,
+  liveEta?: { distance: number; duration: number } | null
+): number | null => {
+  if (liveEta && Number.isFinite(liveEta.duration) && liveEta.duration > 0) {
+    return Math.max(1, Math.ceil(liveEta.duration));
+  }
+  if (typeof ride.eta_minutes === 'number' && Number.isFinite(ride.eta_minutes) && ride.eta_minutes > 0) {
+    return Math.max(1, Math.ceil(ride.eta_minutes));
+  }
+  if (typeof ride.distance_km === 'number' && Number.isFinite(ride.distance_km) && ride.distance_km > 0) {
+    // City average ~25 km/h (same heuristic as book-ride)
+    return Math.max(1, Math.ceil((ride.distance_km / 25) * 60));
+  }
+  return null;
+};
+
+const formatDuration = (mins?: number | null) => {
+  if (mins == null || !Number.isFinite(mins) || mins <= 0) return '—';
+  const m = Math.max(1, Math.ceil(mins));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem ? `${h}h ${rem}m` : `${h}h`;
+};
+
 export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
   ride,
   onRideComplete,
@@ -67,10 +94,12 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
 
   const fareDisplay = formatFare(ride.fare);
   const distanceDisplay = formatDistance(ride.distance_km);
+  const tripMinutes = resolveTripMinutes(ride, liveEta);
+  const timeDisplay = formatDuration(tripMinutes);
   const pickupAddress = ride.pickup_location?.trim() || 'Pickup location';
   const dropoffAddress = ride.dropoff_location?.trim() || '';
 
-  const initialHeight = ride.status === 'pending' ? 340 : MIN_HEIGHT;
+  const initialHeight = ride.status === 'pending' ? 380 : MIN_HEIGHT;
   const sheetHeight = useRef(new Animated.Value(initialHeight)).current;
   const lastHeight = useRef(initialHeight);
   const searchPulse = useRef(new Animated.Value(0)).current;
@@ -282,7 +311,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
       >
         {/* Draggable header */}
         <View {...panResponder.panHandlers} style={styles.headerSection}>
-          {/* Status badge + ETA */}
+          {/* Status row */}
           <View style={styles.statusRow}>
             <View style={[styles.statusBadge, { backgroundColor: statusConfig.color }]}>
               <Ionicons name={statusConfig.icon as any} size={14} color="#FFF" />
@@ -296,82 +325,82 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
                 activeOpacity={0.85}
               >
                 <Ionicons name="call" size={14} color="#166534" />
-                <Text style={styles.contactChipText}>Contact</Text>
+                <Text style={styles.contactChipText}>Help</Text>
               </TouchableOpacity>
             )}
 
             {(ride.status === 'accepted' || ride.status === 'started') && (
               <View style={styles.etaBadge}>
                 <Ionicons name="time" size={12} color={Colors.primary} />
-                <Text style={styles.etaText}>
-                  {liveEta ? `${Math.ceil(liveEta.duration)} min` : `${ride.eta_minutes || '—'} min`}
-                </Text>
+                <Text style={styles.etaText}>{timeDisplay}</Text>
               </View>
             )}
           </View>
 
-          {/* PENDING STATE */}
+          {/* PENDING — simple search UX */}
           {ride.status === 'pending' && (
             <View style={styles.pendingContainer}>
-              <View style={styles.radarWrap}>
-                {[ring1, ring2, ring3].map((ring, i) => (
+              <View style={styles.searchHero}>
+                <View style={styles.radarWrap}>
+                  {[ring1, ring2, ring3].map((ring, i) => (
+                    <Animated.View
+                      key={i}
+                      style={[
+                        styles.radarRing,
+                        {
+                          opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] }),
+                          transform: [
+                            {
+                              scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1.7] }),
+                            },
+                          ],
+                        },
+                      ]}
+                    />
+                  ))}
                   <Animated.View
-                    key={i}
                     style={[
-                      styles.radarRing,
+                      styles.pulseCircle,
                       {
-                        opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] }),
                         transform: [
                           {
-                            scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1.85] }),
+                            scale: searchPulse.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.94, 1.06],
+                            }),
                           },
                         ],
                       },
                     ]}
-                  />
-                ))}
-                <Animated.View
-                  style={[
-                    styles.pulseCircle,
-                    {
-                      transform: [
-                        {
-                          scale: searchPulse.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.94, 1.06],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <Ionicons name="car-sport" size={28} color={Colors.primary} />
-                </Animated.View>
+                  >
+                    <Ionicons name="car-sport" size={22} color={Colors.primary} />
+                  </Animated.View>
+                </View>
+                <View style={styles.searchCopy}>
+                  <Text style={styles.pendingTitle}>Finding your captain</Text>
+                  <Text style={styles.pendingSubtitle}>
+                    {nearbyCount > 0
+                      ? `${nearbyCount} nearby · usually takes a minute`
+                      : 'Matching you with the nearest captain'}
+                  </Text>
+                </View>
               </View>
 
-              <Text style={styles.pendingTitle}>
-                {nearbyCount > 0 ? 'Finding a captain near you' : 'Looking for captains nearby'}
-              </Text>
-              <Text style={styles.pendingSubtitle}>
-                {nearbyCount > 0
-                  ? `${nearbyCount} captain${nearbyCount === 1 ? '' : 's'} in range · hang tight`
-                  : 'Hang tight — we’re matching you with the nearest captain'}
-              </Text>
-
-              <View style={styles.liveStats}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{nearbyCount}</Text>
-                  <Text style={styles.statLabel}>Nearby</Text>
+              {/* What users care about first: fare · distance · time */}
+              <View style={styles.tripSummary}>
+                <View style={styles.tripSummaryItem}>
+                  <Text style={styles.tripSummaryLabel}>Fare</Text>
+                  <Text style={styles.tripSummaryValue}>{fareDisplay}</Text>
                 </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{ride.rejection_count || 0}</Text>
-                  <Text style={styles.statLabel}>Passed</Text>
+                <View style={styles.tripSummaryDivider} />
+                <View style={styles.tripSummaryItem}>
+                  <Text style={styles.tripSummaryLabel}>Distance</Text>
+                  <Text style={styles.tripSummaryValue}>{distanceDisplay}</Text>
                 </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                  <Text style={[styles.statNumber, { color: '#F59E0B' }]}>•</Text>
-                  <Text style={styles.statLabel}>Searching</Text>
+                <View style={styles.tripSummaryDivider} />
+                <View style={styles.tripSummaryItem}>
+                  <Text style={styles.tripSummaryLabel}>Est. time</Text>
+                  <Text style={[styles.tripSummaryValue, styles.tripSummaryTime]}>{timeDisplay}</Text>
                 </View>
               </View>
             </View>
@@ -400,13 +429,15 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
               {ride.status === 'accepted' && (
                 <View style={styles.arrivalBanner}>
                   <Ionicons name="navigate" size={16} color={Colors.primary} />
-                  <Text style={styles.arrivalText}>Captain is on the way to pickup</Text>
+                  <Text style={styles.arrivalText}>
+                    Arriving in {timeDisplay} · share OTP when you board
+                  </Text>
                 </View>
               )}
               {ride.status === 'started' && (
                 <View style={[styles.arrivalBanner, { backgroundColor: '#F3E8FF' }]}>
                   <Ionicons name="car-sport" size={16} color={Colors.primary} />
-                  <Text style={styles.arrivalText}>You are on your way to destination</Text>
+                  <Text style={styles.arrivalText}>{timeDisplay} to destination</Text>
                 </View>
               )}
             </View>
@@ -415,7 +446,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
 
         {/* Details */}
         <View style={styles.detailsSection}>
-          {/* Locations — pickup first, full address */}
+          {/* Locations */}
           <View style={styles.locationsCard}>
             <View style={styles.locRow}>
               <View style={[styles.locDot, { backgroundColor: '#4CAF50' }]} />
@@ -428,28 +459,30 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
               <View style={[styles.locRow, { marginBottom: 0 }]}>
                 <View style={[styles.locDot, { backgroundColor: '#F44336' }]} />
                 <View style={styles.locTextContainer}>
-                  <Text style={styles.locLabel}>Dropoff</Text>
+                  <Text style={styles.locLabel}>Drop</Text>
                   <Text style={styles.locAddress} numberOfLines={2}>{dropoffAddress}</Text>
                 </View>
               </View>
             )}
           </View>
 
-          {/* OTP + Fare + Distance — equal tiles */}
-          <View style={styles.infoRow}>
-            <View style={[styles.infoTile, styles.otpBox]}>
-              <Text style={styles.otpLabel}>OTP</Text>
-              <Text style={styles.otpValue} numberOfLines={1}>{displayOtp || '——'}</Text>
+          {/* OTP + trip facts — OTP only when captain is assigned (needed to board) */}
+          {(ride.status === 'accepted' || ride.status === 'started') && (
+            <View style={styles.infoRow}>
+              <View style={[styles.infoTile, styles.otpBox]}>
+                <Text style={styles.otpLabel}>OTP</Text>
+                <Text style={styles.otpValue} numberOfLines={1}>{displayOtp || '——'}</Text>
+              </View>
+              <View style={[styles.infoTile, styles.fareBox]}>
+                <Text style={styles.fareLabel}>Fare</Text>
+                <Text style={styles.fareValue} numberOfLines={1}>{fareDisplay}</Text>
+              </View>
+              <View style={[styles.infoTile, styles.distBox]}>
+                <Text style={styles.distLabel}>Time</Text>
+                <Text style={styles.distValue} numberOfLines={1}>{timeDisplay}</Text>
+              </View>
             </View>
-            <View style={[styles.infoTile, styles.fareBox]}>
-              <Text style={styles.fareLabel}>Fare</Text>
-              <Text style={styles.fareValue} numberOfLines={1}>{fareDisplay}</Text>
-            </View>
-            <View style={[styles.infoTile, styles.distBox]}>
-              <Text style={styles.distLabel}>Distance</Text>
-              <Text style={styles.distValue} numberOfLines={1}>{distanceDisplay}</Text>
-            </View>
-          </View>
+          )}
 
           {/* Rating */}
           {showRating && (
@@ -468,7 +501,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
             </View>
           )}
 
-          {/* Actions — equal width buttons */}
+          {/* Actions */}
           {!showRating && ride.status !== 'completed' && ride.status !== 'cancelled' && (
             <View style={styles.actions}>
               {(ride.status === 'accepted' || ride.status === 'started') && (
@@ -623,49 +656,75 @@ const styles = StyleSheet.create({
   etaBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3E8FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   etaText: { fontSize: FontSizes.xs, fontWeight: FontWeights.bold, color: Colors.primary, marginLeft: 4 },
 
-  // Pending + radar
-  pendingContainer: { alignItems: 'center', paddingVertical: Spacing.sm },
+  // Pending — compact search hero
+  pendingContainer: { paddingVertical: Spacing.xs },
+  searchHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    gap: 12,
+  },
+  searchCopy: { flex: 1 },
   radarWrap: {
-    width: 120,
-    height: 120,
+    width: 72,
+    height: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.sm,
   },
   radarRing: {
     position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + '12',
-  },
-  pulseCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '10',
+  },
+  pulseCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: Colors.primary + '40',
   },
   pendingTitle: {
     fontSize: FontSizes.md,
     fontWeight: FontWeights.bold,
     color: '#111',
-    textAlign: 'center',
   },
   pendingSubtitle: {
     fontSize: FontSizes.sm,
     color: '#666',
-    textAlign: 'center',
     marginTop: 4,
-    marginBottom: Spacing.md,
-    paddingHorizontal: Spacing.sm,
     lineHeight: 18,
   },
+  tripSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#EEF0F4',
+  },
+  tripSummaryItem: { flex: 1, alignItems: 'center' },
+  tripSummaryLabel: {
+    fontSize: FontSizes.xs,
+    color: '#8B90A5',
+    fontWeight: FontWeights.semibold,
+    marginBottom: 4,
+  },
+  tripSummaryValue: {
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.bold,
+    color: '#1A1B2E',
+  },
+  tripSummaryTime: { color: Colors.primary },
+  tripSummaryDivider: { width: 1, height: 28, backgroundColor: '#E5E7EB' },
   liveStats: { flexDirection: 'row', backgroundColor: '#F8F9FA', borderRadius: 12, paddingVertical: 14, paddingHorizontal: Spacing.md, width: '100%' },
   statBox: { flex: 1, alignItems: 'center' },
   statNumber: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.primary, minHeight: 24 },

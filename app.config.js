@@ -4,14 +4,14 @@ export default {
     slug: "jk-taxi-customer",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/jk_taxi_logo.png",
+    icon: "./assets/images/icon.png",
     scheme: "jktaxi",
-    userInterfaceStyle: "automatic",
+    userInterfaceStyle: "light",
     newArchEnabled: true,
     splash: {
-      image: "./assets/images/jk_taxi_logo.png",
+      image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
-      backgroundColor: "#ffffff",
+      backgroundColor: "#4C1D95",
     },
     ios: {
       supportsTablet: true,
@@ -32,8 +32,8 @@ export default {
       package: "com.jktaxi.customer",
       versionCode: 1,
       adaptiveIcon: {
-        backgroundColor: "#FFEB3B",
-        foregroundImage: "./assets/images/jk_taxi_logo.png",
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        backgroundColor: "#4C1D95",
       },
       permissions: [
         "ACCESS_COARSE_LOCATION",
@@ -66,15 +66,15 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/jk_taxi_logo.png",
-          imageWidth: 250,
+          image: "./assets/images/splash-icon.png",
+          imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#ffffff",
+          backgroundColor: "#4C1D95",
           dark: {
-            image: "./assets/images/jk_taxi_logo.png",
-            imageWidth: 250,
+            image: "./assets/images/splash-icon.png",
+            imageWidth: 200,
             resizeMode: "contain",
-            backgroundColor: "#1a1a2e",
+            backgroundColor: "#4C1D95",
           },
         },
       ],

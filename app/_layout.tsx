@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import { useAuthStore } from '../src/store/authStore';
 import { Colors } from '../src/constants/theme';
@@ -11,6 +12,13 @@ import { OfflineBanner } from '../src/components/common/OfflineBanner';
 export const unstable_settings = {
   initialRouteName: '(auth)/login',
 };
+
+// Keep native splash up until auth is ready. Fail soft so Expo preview never crashes.
+try {
+  SplashScreen.preventAutoHideAsync().catch(() => undefined);
+} catch {
+  // Preview / web may not support splash APIs
+}
 
 export default function RootLayout() {
   const { isAuthenticated, isInitializing, pendingWelcome, loadUser } = useAuthStore();
@@ -21,6 +29,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (isInitializing) return;
+
+    // Hide native splash once JS is ready — never throw
+    SplashScreen.hideAsync().catch(() => undefined);
 
     if (isAuthenticated) {
       if (pendingWelcome) {
@@ -35,8 +46,16 @@ export default function RootLayout() {
 
   if (isInitializing) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={styles.boot}>
+        <Image
+          source={require('../assets/images/splash-icon.png')}
+          style={styles.bootLogo}
+          resizeMode="contain"
+        />
+        <Text style={styles.bootTitle}>JK Taxi</Text>
+        <Text style={styles.bootTag}>Book · Ride · Relax</Text>
+        <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 28 }} />
+        <StatusBar style="light" translucent />
       </View>
     );
   }
@@ -74,3 +93,31 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  boot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4C1D95',
+    paddingHorizontal: 32,
+  },
+  bootLogo: {
+    width: 168,
+    height: 168,
+  },
+  bootTitle: {
+    marginTop: 20,
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  bootTag: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 1,
+  },
+});
