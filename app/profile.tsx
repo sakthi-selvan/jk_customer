@@ -215,6 +215,17 @@ export default function ProfileScreen() {
 
           <View style={styles.menuSection}>
             <MenuItem
+              icon="play-circle-outline"
+              title="Ride UI Preview"
+              subtitle="Searching → accept → trip → drop (mock)"
+              onPress={() => router.push('/ride-ui-preview')}
+              iconColor={Colors.primary}
+              iconBg="#F3E8FF"
+            />
+
+            <View style={styles.menuDivider} />
+
+            <MenuItem
               icon="help-circle-outline"
               title="Help Center"
               subtitle="FAQs, How-to guides"

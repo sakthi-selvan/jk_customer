@@ -510,6 +510,20 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
               <Text style={styles.menuItemText}>Profile</Text>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                toggleMenu();
+                router.push('/ride-ui-preview');
+              }}
+            >
+              <View style={styles.menuItemIconContainer}>
+                <Ionicons name="play-circle" size={24} color={Colors.primary} />
+              </View>
+              <Text style={styles.menuItemText}>Ride Preview</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity

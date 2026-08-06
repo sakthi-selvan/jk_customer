@@ -30,6 +30,8 @@ interface RideBottomSheetProps {
   ride: EnhancedRide;
   onRideComplete: () => void;
   liveEta?: { distance: number; duration: number } | null;
+  /** UI preview: force nearby count instead of API polling */
+  nearbyCountOverride?: number;
 }
 
 const CANCEL_REASONS = [
@@ -82,11 +84,12 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
   ride,
   onRideComplete,
   liveEta,
+  nearbyCountOverride,
 }) => {
   const { user } = useAuthStore();
   // Rapido-style: one OTP per user for every ride
   const displayOtp = user?.ride_otp || ride.ride_otp;
-  const [nearbyCount, setNearbyCount] = useState(0);
+  const [nearbyCount, setNearbyCount] = useState(nearbyCountOverride ?? 0);
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -174,14 +177,18 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
     };
   }, [ride.status]);
 
-  // Fetch nearby drivers count while searching
+  // Fetch nearby drivers count (skip when preview override is set)
   useEffect(() => {
+    if (typeof nearbyCountOverride === 'number') {
+      setNearbyCount(nearbyCountOverride);
+      return;
+    }
     if (ride.status === 'pending') {
       fetchNearby();
       const interval = setInterval(fetchNearby, 5000);
       return () => clearInterval(interval);
     }
-  }, [ride.status]);
+  }, [ride.status, nearbyCountOverride]);
 
   // Show rating on completion
   useEffect(() => {
