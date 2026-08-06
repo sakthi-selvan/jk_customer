@@ -1,4 +1,5 @@
 import { EnhancedRide, VehicleCategory } from '../types/enhanced';
+import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox-config';
 
 /** User's current test location (from device logs). */
 export const PREVIEW_PICKUP = {
@@ -32,6 +33,8 @@ export type NearbyPin = {
   category: string;
 };
 
+export type LngLat = [number, number]; // [lng, lat]
+
 /** One–two captains per category around pickup for the searching map. */
 export function buildNearbyPreviewPins(): NearbyPin[] {
   const { latitude: lat, longitude: lng } = PREVIEW_PICKUP;
@@ -41,7 +44,6 @@ export function buildNearbyPreviewPins(): NearbyPin[] {
     [VehicleCategory.MINI, 0.0022, -0.0010],
     [VehicleCategory.SEDAN, -0.0020, -0.0014],
     [VehicleCategory.SUV, 0.0008, -0.0022],
-    // second pin for a couple categories
     [VehicleCategory.BIKE, -0.0009, 0.0024],
     [VehicleCategory.MINI, 0.0012, 0.0020],
   ];
@@ -53,7 +55,7 @@ export function buildNearbyPreviewPins(): NearbyPin[] {
   }));
 }
 
-/** Driver starts ~1.2 km SW of pickup, then moves to pickup, then to drop. */
+/** Driver starts ~1.2 km SW of pickup. */
 export const DRIVER_START = {
   latitude: PREVIEW_PICKUP.latitude - 0.008,
   longitude: PREVIEW_PICKUP.longitude - 0.006,
@@ -63,16 +65,109 @@ export function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
-export function interpolateLocation(
+function haversineMeters(a: LngLat, b: LngLat) {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(b[1] - a[1]);
+  const dLng = toRad(b[0] - a[0]);
+  const lat1 = toRad(a[1]);
+  const lat2 = toRad(b[1]);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** Fetch a driving polyline between two points (Mapbox). Falls back to a straight segment. */
+export async function fetchDrivingRoute(
   from: { latitude: number; longitude: number },
-  to: { latitude: number; longitude: number },
-  t: number
-) {
+  to: { latitude: number; longitude: number }
+): Promise<LngLat[]> {
+  const fallback: LngLat[] = [
+    [from.longitude, from.latitude],
+    [to.longitude, to.latitude],
+  ];
+  if (!MAPBOX_ACCESS_TOKEN) return fallback;
+
+  try {
+    const url =
+      `https://api.mapbox.com/directions/v5/mapbox/driving/` +
+      `${from.longitude},${from.latitude};${to.longitude},${to.latitude}` +
+      `?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const coords = data?.routes?.[0]?.geometry?.coordinates as LngLat[] | undefined;
+    if (coords && coords.length >= 2) return coords;
+  } catch {
+    // ignore
+  }
+  return fallback;
+}
+
+function bearingDegrees(a: LngLat, b: LngLat) {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const lat1 = toRad(a[1]);
+  const lat2 = toRad(b[1]);
+  const dLng = toRad(b[0] - a[0]);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/**
+ * Place a point at fraction t (0..1) along a route, with heading following the road.
+ */
+export function pointAlongRoute(coords: LngLat[], t: number) {
   const clamped = Math.max(0, Math.min(1, t));
-  return {
-    latitude: lerp(from.latitude, to.latitude, clamped),
-    longitude: lerp(from.longitude, to.longitude, clamped),
-  };
+  if (!coords.length) {
+    return { latitude: PREVIEW_PICKUP.latitude, longitude: PREVIEW_PICKUP.longitude, heading: 0 };
+  }
+  if (coords.length === 1 || clamped <= 0) {
+    const [lng, lat] = coords[0];
+    const heading = coords.length > 1 ? bearingDegrees(coords[0], coords[1]) : 0;
+    return { latitude: lat, longitude: lng, heading };
+  }
+  if (clamped >= 1) {
+    const last = coords[coords.length - 1];
+    const prev = coords[coords.length - 2] || last;
+    return {
+      latitude: last[1],
+      longitude: last[0],
+      heading: bearingDegrees(prev, last),
+    };
+  }
+
+  const segLens: number[] = [];
+  let total = 0;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const len = haversineMeters(coords[i], coords[i + 1]);
+    segLens.push(len);
+    total += len;
+  }
+  if (total <= 0) {
+    const [lng, lat] = coords[0];
+    return { latitude: lat, longitude: lng, heading: 0 };
+  }
+
+  let remain = total * clamped;
+  for (let i = 0; i < segLens.length; i++) {
+    const len = segLens[i];
+    if (remain <= len || i === segLens.length - 1) {
+      const localT = len > 0 ? remain / len : 1;
+      const a = coords[i];
+      const b = coords[i + 1];
+      return {
+        longitude: lerp(a[0], b[0], localT),
+        latitude: lerp(a[1], b[1], localT),
+        heading: bearingDegrees(a, b),
+      };
+    }
+    remain -= len;
+  }
+
+  const last = coords[coords.length - 1];
+  return { latitude: last[1], longitude: last[0], heading: 0 };
 }
 
 export function buildPreviewRide(phase: PreviewPhase): EnhancedRide {

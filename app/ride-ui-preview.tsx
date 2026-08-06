@@ -20,52 +20,75 @@ import {
   DRIVER_START,
   PREVIEW_PICKUP,
   PREVIEW_DROPOFF,
-  interpolateLocation,
+  fetchDrivingRoute,
+  pointAlongRoute,
+  type LngLat,
 } from '../src/utils/rideUiPreviewMock';
 
-const PHASE_ORDER: PreviewPhase[] = ['searching', 'accepted', 'started', 'completed'];
-
 /**
- * Local UI walkthrough — does not create a real booking.
- * Uses your device location + OTP 1254 to preview searching → accept → en route → trip → drop.
+ * Local UI walkthrough — captain moves along real road geometry (not a straight line).
  */
 export default function RideUiPreviewScreen() {
   const [phase, setPhase] = useState<PreviewPhase>('searching');
   const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0); // 0..1 within accepted/started movement
+  const [progress, setProgress] = useState(0);
   const [liveEta, setLiveEta] = useState<{ distance: number; duration: number } | null>(null);
+  const [toPickupRoute, setToPickupRoute] = useState<LngLat[] | null>(null);
+  const [toDropRoute, setToDropRoute] = useState<LngLat[] | null>(null);
+  const [routesLoading, setRoutesLoading] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const nearbyPins = useMemo(() => buildNearbyPreviewPins(), []);
   const ride = useMemo(() => buildPreviewRide(phase), [phase]);
 
+  // Prefetch both road routes once
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setRoutesLoading(true);
+      const [a, b] = await Promise.all([
+        fetchDrivingRoute(DRIVER_START, PREVIEW_PICKUP),
+        fetchDrivingRoute(PREVIEW_PICKUP, PREVIEW_DROPOFF),
+      ]);
+      if (cancelled) return;
+      setToPickupRoute(a);
+      setToDropRoute(b);
+      setRoutesLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const activeRoute: LngLat[] | null =
+    phase === 'accepted'
+      ? toPickupRoute
+      : phase === 'started' || phase === 'completed'
+        ? toDropRoute
+        : null;
+
   const driverLocation = useMemo(() => {
     if (phase === 'searching') return null;
-    if (phase === 'accepted') {
-      const loc = interpolateLocation(DRIVER_START, PREVIEW_PICKUP, progress);
-      // Bearing toward pickup (approx) for marker rotation
-      const heading =
-        (Math.atan2(
-          PREVIEW_PICKUP.longitude - DRIVER_START.longitude,
-          PREVIEW_PICKUP.latitude - DRIVER_START.latitude
-        ) *
-          180) /
-        Math.PI;
-      return { ...loc, heading: (heading + 360) % 360 };
+    if (phase === 'completed') {
+      return pointAlongRoute(toDropRoute || [[PREVIEW_DROPOFF.longitude, PREVIEW_DROPOFF.latitude]], 1);
     }
-    if (phase === 'started') {
-      const loc = interpolateLocation(PREVIEW_PICKUP, PREVIEW_DROPOFF, progress);
-      const heading =
-        (Math.atan2(
-          PREVIEW_DROPOFF.longitude - PREVIEW_PICKUP.longitude,
-          PREVIEW_DROPOFF.latitude - PREVIEW_PICKUP.latitude
-        ) *
-          180) /
-        Math.PI;
-      return { ...loc, heading: (heading + 360) % 360 };
+    if (!activeRoute || activeRoute.length < 2) {
+      // Routes still loading — hold at leg start
+      if (phase === 'accepted') {
+        return {
+          latitude: DRIVER_START.latitude,
+          longitude: DRIVER_START.longitude,
+          heading: 0,
+        };
+      }
+      return {
+        latitude: PREVIEW_PICKUP.latitude,
+        longitude: PREVIEW_PICKUP.longitude,
+        heading: 0,
+      };
     }
-    return { latitude: PREVIEW_DROPOFF.latitude, longitude: PREVIEW_DROPOFF.longitude, heading: 0 };
-  }, [phase, progress]);
+    return pointAlongRoute(activeRoute, progress);
+  }, [phase, progress, activeRoute, toDropRoute]);
 
   const mapStatus: 'pending' | 'accepted' | 'started' =
     phase === 'searching' ? 'pending' : phase === 'accepted' ? 'accepted' : 'started';
@@ -79,7 +102,7 @@ export default function RideUiPreviewScreen() {
   const goToPhase = (next: PreviewPhase) => {
     stopPlay();
     setPhase(next);
-    setProgress(0);
+    setProgress(next === 'completed' ? 1 : 0);
     setLiveEta(null);
   };
 
@@ -91,12 +114,15 @@ export default function RideUiPreviewScreen() {
 
   useEffect(() => {
     if (!playing) return;
+    // Don't animate until road route for this leg is ready
+    if ((phase === 'accepted' && !toPickupRoute) || (phase === 'started' && !toDropRoute)) {
+      return;
+    }
 
     tickRef.current = setInterval(() => {
       setProgress((p) => {
-        const next = p + 0.02;
+        const next = p + 0.012;
         if (next >= 1) {
-          const idx = PHASE_ORDER.indexOf(phase);
           if (phase === 'accepted') {
             setPhase('started');
             return 0;
@@ -110,29 +136,24 @@ export default function RideUiPreviewScreen() {
             setPhase('accepted');
             return 0;
           }
-          if (idx < PHASE_ORDER.length - 1) {
-            setPhase(PHASE_ORDER[idx + 1]);
-            return 0;
-          }
           stopPlay();
           return 1;
         }
         return next;
       });
-    }, 120);
+    }, 100);
 
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
     };
-  }, [playing, phase]);
+  }, [playing, phase, toPickupRoute, toDropRoute]);
 
-  // Auto-advance searching after a short beat when playing
   useEffect(() => {
     if (!playing || phase !== 'searching') return;
     const t = setTimeout(() => {
       setPhase('accepted');
       setProgress(0);
-    }, 2800);
+    }, 2200);
     return () => clearTimeout(t);
   }, [playing, phase]);
 
@@ -148,7 +169,9 @@ export default function RideUiPreviewScreen() {
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>Ride UI Preview</Text>
-          <Text style={styles.headerSub}>Mock walkthrough · OTP {ride.ride_otp}</Text>
+          <Text style={styles.headerSub}>
+            {routesLoading ? 'Loading road routes…' : `Road path sim · OTP ${ride.ride_otp}`}
+          </Text>
         </View>
         <TouchableOpacity
           style={[styles.playBtn, playing && styles.playBtnActive]}
@@ -204,9 +227,9 @@ export default function RideUiPreviewScreen() {
       <View style={styles.hintBar}>
         <Ionicons name="information-circle-outline" size={16} color="#64748B" />
         <Text style={styles.hintText}>
-          {phase === 'searching' && 'Searching: nearby captains on map + contact/cancel sheet'}
-          {phase === 'accepted' && 'Accepted: captain moves toward your pickup'}
-          {phase === 'started' && 'On trip: captain moves to destination'}
+          {phase === 'searching' && 'Searching: nearby captains on map'}
+          {phase === 'accepted' && 'Captain follows roads to your pickup'}
+          {phase === 'started' && 'Trip follows roads to destination'}
           {phase === 'completed' && 'Dropped: rate the ride (preview only)'}
         </Text>
       </View>

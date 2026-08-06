@@ -348,9 +348,10 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           </Mapbox.PointAnnotation>
         )}
 
-        {/* Stable MarkerView — PointAnnotation often fails to paint Image children */}
+        {/* Remount lightly so Mapbox paints movement along the road */}
         {driverLocation && (rideStatus === 'accepted' || rideStatus === 'started') && (
           <Mapbox.MarkerView
+            key={`driver-${driverLocation.latitude.toFixed(4)}-${driverLocation.longitude.toFixed(4)}`}
             id="driver"
             coordinate={[driverLocation.longitude, driverLocation.latitude]}
             allowOverlap
