@@ -1,5 +1,5 @@
 /**
- * Top-down vehicle markers for the map (Google Maps / Uber style).
+ * Top-down vehicle markers for the map (tight icon style, no halo).
  */
 import React from 'react';
 import { View, Text, Image, StyleSheet, ImageSourcePropType } from 'react-native';
@@ -61,30 +61,25 @@ interface VehicleMarkerProps {
 
 export const VehicleMarker: React.FC<VehicleMarkerProps> = ({
   category,
-  size = 44,
+  size = 36,
   heading = null,
 }) => {
   const key = (TOP_VIEW[category] ? category : normalizeFleetCategory(category)) as string;
   const source = TOP_VIEW[key] || TOP_VIEW.other;
   const rotation = typeof heading === 'number' && Number.isFinite(heading) ? heading : 0;
-  // Halo so dark top-views stay visible on roads/satellite
-  const halo = Math.round(size * 1.15);
 
   return (
-    <View style={[styles.wrap, { width: halo, height: halo }]}>
-      <View style={[styles.halo, { width: halo * 0.72, height: halo * 0.72, borderRadius: halo }]} />
-      <View
-        style={[
-          styles.icon,
-          {
-            width: size,
-            height: size,
-            transform: [{ rotate: `${rotation}deg` }],
-          },
-        ]}
-      >
-        <Image source={source} style={{ width: size, height: size }} resizeMode="contain" />
-      </View>
+    <View
+      style={[
+        styles.wrap,
+        {
+          width: size,
+          height: size,
+          transform: [{ rotate: `${rotation}deg` }],
+        },
+      ]}
+    >
+      <Image source={source} style={styles.image} resizeMode="contain" />
     </View>
   );
 };
@@ -93,7 +88,7 @@ export const VehicleMarkerLegend: React.FC<{ category: FleetCategory }> = ({ cat
   const cfg = STYLE[category] || STYLE.other;
   return (
     <View style={styles.legendRow}>
-      <VehicleMarker category={category} size={28} />
+      <VehicleMarker category={category} size={26} />
       <Text style={styles.legendText}>{cfg.label}</Text>
     </View>
   );
@@ -103,21 +98,12 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  halo: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  icon: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  image: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
   },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { fontSize: 12, color: '#334155', textTransform: 'capitalize' },

@@ -358,7 +358,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           >
             <VehicleMarker
               category={vehicleCategory || 'mini'}
-              size={46}
+              size={38}
               heading={driverLocation.heading}
             />
           </Mapbox.MarkerView>
@@ -373,7 +373,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
               allowOverlap
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <VehicleMarker category={pin.category} size={38} />
+              <VehicleMarker category={pin.category} size={32} />
             </Mapbox.MarkerView>
           ))}
       </Mapbox.MapView>

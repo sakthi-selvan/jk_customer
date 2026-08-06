@@ -123,7 +123,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
             allowOverlap
             anchor={{ x: 0.5, y: 0.5 }}
           >
-            <VehicleMarker category={d.category} size={40} />
+            <VehicleMarker category={d.category} size={34} />
           </MarkerView>
         ))}
       </MapView>
