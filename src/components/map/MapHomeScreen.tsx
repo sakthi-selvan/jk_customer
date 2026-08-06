@@ -42,7 +42,7 @@ interface MapHomeScreenProps {
 
 export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const { user, logout } = useAuthStore();
-  const { activeRide, getActiveRide, driverLocation, startTracking, stopTracking, setUserLocation } = useRideStore();
+  const { activeRide, getActiveRide, driverLocation, startTracking, stopTracking, setUserLocation, setPendingLocationPick } = useRideStore();
   const [liveEta, setLiveEta] = useState<{ distance: number; duration: number } | null>(null);
   const insets = useSafeAreaInsets();
 
@@ -332,6 +332,23 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const handleRideComplete = async () => {
     // Refresh to check if ride is truly complete
     await getActiveRide();
+  };
+
+  /** Prefill destination on book-ride when user taps Home / Work / recent chips. */
+  const openBookWithDropoff = (place: {
+    name?: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  }) => {
+    setPendingLocationPick({
+      latitude: place.latitude,
+      longitude: place.longitude,
+      name: place.name || place.address.split(',')[0] || 'Destination',
+      address: place.address,
+      pickType: 'dropoff',
+    });
+    onBookRide();
   };
 
   // Check if we should show active ride in bottom sheet
@@ -672,13 +689,33 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
                   style={styles.quickChipsScroll}
                 >
                   {savedPlaces.home && (
-                    <TouchableOpacity style={styles.savedPlaceChip} onPress={onBookRide}>
+                    <TouchableOpacity
+                      style={styles.savedPlaceChip}
+                      onPress={() =>
+                        openBookWithDropoff({
+                          name: 'Home',
+                          address: savedPlaces.home!.address,
+                          latitude: savedPlaces.home!.latitude,
+                          longitude: savedPlaces.home!.longitude,
+                        })
+                      }
+                    >
                       <Ionicons name="home" size={15} color={Colors.primary} />
                       <Text style={styles.savedPlaceText} numberOfLines={1}>Home</Text>
                     </TouchableOpacity>
                   )}
                   {savedPlaces.work && (
-                    <TouchableOpacity style={styles.savedPlaceChip} onPress={onBookRide}>
+                    <TouchableOpacity
+                      style={styles.savedPlaceChip}
+                      onPress={() =>
+                        openBookWithDropoff({
+                          name: 'Work',
+                          address: savedPlaces.work!.address,
+                          latitude: savedPlaces.work!.latitude,
+                          longitude: savedPlaces.work!.longitude,
+                        })
+                      }
+                    >
                       <Ionicons name="briefcase" size={15} color={Colors.primary} />
                       <Text style={styles.savedPlaceText} numberOfLines={1}>Work</Text>
                     </TouchableOpacity>
@@ -687,7 +724,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
                     <TouchableOpacity
                       key={`${item.latitude}-${index}`}
                       style={styles.recentChip}
-                      onPress={onBookRide}
+                      onPress={() => openBookWithDropoff(item)}
                     >
                       <Ionicons name="time-outline" size={14} color="#64748B" />
                       <Text style={styles.recentChipText} numberOfLines={1}>{item.name}</Text>
@@ -703,7 +740,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
                     <TouchableOpacity
                       key={`expanded-${item.latitude}-${index}`}
                       style={styles.recentItem}
-                      onPress={onBookRide}
+                      onPress={() => openBookWithDropoff(item)}
                     >
                       <View style={styles.recentIconContainer}>
                         <Ionicons name="time-outline" size={16} color="#666" />
