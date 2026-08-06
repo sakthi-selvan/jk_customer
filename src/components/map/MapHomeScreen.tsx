@@ -584,7 +584,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
       {showActiveRideSheet ? (
         <RideBottomSheet ride={activeRide as any} onRideComplete={handleRideComplete} liveEta={liveEta} />
       ) : (
-        <View style={[styles.bottomCard, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+        <View style={[styles.bottomCard, { paddingBottom: Math.max(insets.bottom, 8) + 4 }]}>
           <View style={styles.sheetHandle} />
           {activeRide ? (
             <TouchableOpacity
@@ -927,9 +927,9 @@ const styles = StyleSheet.create({
   centerButton: {
     position: 'absolute',
     right: Spacing.md,
-    bottom: 210,
-    width: 48,
-    height: 48,
+    bottom: 148,
+    width: 44,
+    height: 44,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.white,
     alignItems: 'center',
@@ -946,30 +946,30 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: Colors.sheet,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: Spacing.md,
+    paddingTop: 6,
     shadowColor: '#1A1B2E',
-    shadowOffset: { width: 0, height: -8 },
+    shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.1,
-    shadowRadius: 18,
+    shadowRadius: 12,
     elevation: 14,
   },
   sheetHandle: {
     alignSelf: 'center',
-    width: 40,
-    height: 4,
+    width: 36,
+    height: 3,
     borderRadius: 2,
     backgroundColor: '#D1D5DB',
-    marginBottom: Spacing.sm,
+    marginBottom: 8,
   },
   bookingPrompt: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: FontWeights.bold,
     color: Colors.ink,
     letterSpacing: -0.3,
-    marginBottom: Spacing.sm,
+    marginBottom: 8,
   },
   bookingSubprompt: {
     fontSize: FontSizes.sm,
@@ -981,17 +981,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: BorderRadius.xl,
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.sm,
+    marginBottom: 6,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   searchIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

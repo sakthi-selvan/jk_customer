@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import Mapbox, { Camera, MapView, UserLocation } from '@rnmapbox/maps';
+import Mapbox, { Camera, MapView, UserLocation, MarkerView } from '@rnmapbox/maps';
 import { Ionicons } from '@expo/vector-icons';
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLES } from '../../config/mapbox-config';
 import { bookingEnhancedApi } from '../../api/booking-enhanced';
@@ -116,14 +116,15 @@ export const FleetMap: React.FC<FleetMapProps> = ({
         <UserLocation visible showsUserHeadingIndicator androidRenderMode="compass" />
 
         {drivers.map((d) => (
-          <Mapbox.PointAnnotation
+          <MarkerView
             key={`${d.id}-${d.category}`}
             id={`fleet-${d.id}`}
             coordinate={[d.longitude, d.latitude]}
-            title={d.category}
+            allowOverlap
+            anchor={{ x: 0.5, y: 0.5 }}
           >
-            <VehicleMarker category={d.category} size={42} />
-          </Mapbox.PointAnnotation>
+            <VehicleMarker category={d.category} size={40} />
+          </MarkerView>
         ))}
       </MapView>
 

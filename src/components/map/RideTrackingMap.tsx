@@ -348,31 +348,33 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           </Mapbox.PointAnnotation>
         )}
 
-        {/* Stable id — do not remount on each coordinate tick */}
+        {/* Stable MarkerView — PointAnnotation often fails to paint Image children */}
         {driverLocation && (rideStatus === 'accepted' || rideStatus === 'started') && (
-          <Mapbox.PointAnnotation
+          <Mapbox.MarkerView
             id="driver"
             coordinate={[driverLocation.longitude, driverLocation.latitude]}
-            title="Captain"
+            allowOverlap
+            anchor={{ x: 0.5, y: 0.5 }}
           >
             <VehicleMarker
               category={vehicleCategory || 'mini'}
-              size={48}
+              size={46}
               heading={driverLocation.heading}
             />
-          </Mapbox.PointAnnotation>
+          </Mapbox.MarkerView>
         )}
 
         {rideStatus === 'pending' &&
           nearbyPins?.map((pin) => (
-            <Mapbox.PointAnnotation
+            <Mapbox.MarkerView
               key={pin.id}
               id={pin.id}
               coordinate={[pin.longitude, pin.latitude]}
-              title={pin.category}
+              allowOverlap
+              anchor={{ x: 0.5, y: 0.5 }}
             >
-              <VehicleMarker category={pin.category} size={40} />
-            </Mapbox.PointAnnotation>
+              <VehicleMarker category={pin.category} size={38} />
+            </Mapbox.MarkerView>
           ))}
       </Mapbox.MapView>
 

@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 36,
-    height: '48%',
+    height: '42%',
   },
   hintBar: {
     flexDirection: 'row',

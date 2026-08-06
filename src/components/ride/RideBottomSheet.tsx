@@ -21,8 +21,8 @@ import { bookingEnhancedApi } from '../../api/booking-enhanced';
 import { useAuthStore } from '../../store/authStore';
 
 const { height } = Dimensions.get('window');
-const MIN_HEIGHT = 280;
-const MAX_HEIGHT = height * 0.7;
+const MIN_HEIGHT = 240;
+const MAX_HEIGHT = height * 0.65;
 
 interface RideBottomSheetProps {
   ride: EnhancedRide;
@@ -73,7 +73,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
   const pickupAddress = ride.pickup_location?.trim() || 'Pickup location';
   const dropoffAddress = ride.dropoff_location?.trim() || '';
 
-  const initialHeight = ride.status === 'pending' ? 420 : MIN_HEIGHT;
+  const initialHeight = ride.status === 'pending' ? 340 : MIN_HEIGHT;
   const sheetHeight = useRef(new Animated.Value(initialHeight)).current;
   const lastHeight = useRef(initialHeight);
   const searchPulse = useRef(new Animated.Value(0)).current;
