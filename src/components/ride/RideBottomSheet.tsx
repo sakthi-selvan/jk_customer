@@ -289,6 +289,17 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
               <Text style={styles.statusText}>{statusConfig.title}</Text>
             </View>
 
+            {ride.status === 'pending' && (
+              <TouchableOpacity
+                style={styles.contactChip}
+                onPress={() => setShowHelpModal(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="call" size={14} color="#166534" />
+                <Text style={styles.contactChipText}>Contact</Text>
+              </TouchableOpacity>
+            )}
+
             {(ride.status === 'accepted' || ride.status === 'started') && (
               <View style={styles.etaBadge}>
                 <Ionicons name="time" size={12} color={Colors.primary} />
@@ -460,16 +471,6 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
           {/* Actions — equal width buttons */}
           {!showRating && ride.status !== 'completed' && ride.status !== 'cancelled' && (
             <View style={styles.actions}>
-              {ride.status === 'pending' && (
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.contactBtn]}
-                  onPress={() => setShowHelpModal(true)}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="call-outline" size={18} color="#166534" />
-                  <Text style={styles.contactBtnText}>Contact</Text>
-                </TouchableOpacity>
-              )}
               {(ride.status === 'accepted' || ride.status === 'started') && (
                 <TouchableOpacity style={[styles.actionBtn, styles.shareBtn]} onPress={handleShareTrip}>
                   <Ionicons name="share-social" size={18} color={Colors.primary} />
@@ -601,6 +602,22 @@ const styles = StyleSheet.create({
   detailsSection: { paddingHorizontal: Spacing.lg },
 
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  contactChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.full,
+  },
+  contactChipText: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+    color: '#166534',
+  },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexShrink: 1 },
   statusText: { color: '#FFF', fontSize: FontSizes.sm, fontWeight: FontWeights.bold, marginLeft: 6 },
   etaBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3E8FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
