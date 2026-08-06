@@ -45,7 +45,7 @@ export function VehicleCategoryImage({
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: '#0B0B0F',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
