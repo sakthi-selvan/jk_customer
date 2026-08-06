@@ -182,7 +182,6 @@ export default function RideUiPreviewScreen() {
 
       <View style={styles.mapWrap}>
         <RideTrackingMap
-          key={`preview-${phase}`}
           rideStatus={mapStatus}
           pickupLocation={PREVIEW_PICKUP}
           dropoffLocation={PREVIEW_DROPOFF}
