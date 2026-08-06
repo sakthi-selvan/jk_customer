@@ -66,10 +66,13 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
   const pickupAddress = ride.pickup_location?.trim() || 'Pickup location';
   const dropoffAddress = ride.dropoff_location?.trim() || '';
 
-  const initialHeight = ride.status === 'pending' ? 380 : MIN_HEIGHT;
+  const initialHeight = ride.status === 'pending' ? 420 : MIN_HEIGHT;
   const sheetHeight = useRef(new Animated.Value(initialHeight)).current;
   const lastHeight = useRef(initialHeight);
   const searchPulse = useRef(new Animated.Value(0)).current;
+  const ring1 = useRef(new Animated.Value(0)).current;
+  const ring2 = useRef(new Animated.Value(0)).current;
+  const ring3 = useRef(new Animated.Value(0)).current;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -94,16 +97,46 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
     })
   ).current;
 
-  // Pulse animation for pending
+  // Pulse + radar rings while searching
   useEffect(() => {
-    if (ride.status === 'pending') {
+    if (ride.status !== 'pending') {
+      searchPulse.stopAnimation();
+      ring1.stopAnimation();
+      ring2.stopAnimation();
+      ring3.stopAnimation();
+      return;
+    }
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(searchPulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(searchPulse, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    );
+
+    const makeRing = (anim: Animated.Value, delay: number) =>
       Animated.loop(
         Animated.sequence([
-          Animated.timing(searchPulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
-          Animated.timing(searchPulse, { toValue: 0, duration: 1000, useNativeDriver: true }),
+          Animated.delay(delay),
+          Animated.timing(anim, { toValue: 1, duration: 1800, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
         ])
-      ).start();
-    }
+      );
+
+    pulseLoop.start();
+    const r1 = makeRing(ring1, 0);
+    const r2 = makeRing(ring2, 600);
+    const r3 = makeRing(ring3, 1200);
+    r1.start();
+    r2.start();
+    r3.start();
+
+    return () => {
+      pulseLoop.stop();
+      r1.stop();
+      r2.stop();
+      r3.stop();
+    };
   }, [ride.status]);
 
   // Fetch nearby drivers count
@@ -245,63 +278,69 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
       >
         {/* Draggable header */}
         <View {...panResponder.panHandlers} style={styles.headerSection}>
-          {/* Status badge + help / ETA on the right */}
+          {/* Status badge + ETA */}
           <View style={styles.statusRow}>
             <View style={[styles.statusBadge, { backgroundColor: statusConfig.color }]}>
               <Ionicons name={statusConfig.icon as any} size={14} color="#FFF" />
               <Text style={styles.statusText}>{statusConfig.title}</Text>
             </View>
 
-            {ride.status === 'pending' ? (
-              <TouchableOpacity
-                style={styles.helpChip}
-                onPress={() => setShowHelpModal(true)}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="call" size={14} color="#166534" />
-                <Text style={styles.helpChipText}>Contact</Text>
-              </TouchableOpacity>
-            ) : (ride.status === 'accepted' || ride.status === 'started') ? (
+            {(ride.status === 'accepted' || ride.status === 'started') && (
               <View style={styles.etaBadge}>
                 <Ionicons name="time" size={12} color={Colors.primary} />
                 <Text style={styles.etaText}>
                   {liveEta ? `${Math.ceil(liveEta.duration)} min` : `${ride.eta_minutes || '—'} min`}
                 </Text>
               </View>
-            ) : null}
+            )}
           </View>
 
           {/* PENDING STATE */}
           {ride.status === 'pending' && (
             <View style={styles.pendingContainer}>
-              <Animated.View
-                style={[
-                  styles.pulseCircle,
-                  {
-                    opacity: searchPulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
-                    transform: [
+              <View style={styles.radarWrap}>
+                {[ring1, ring2, ring3].map((ring, i) => (
+                  <Animated.View
+                    key={i}
+                    style={[
+                      styles.radarRing,
                       {
-                        scale: searchPulse.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.94, 1.06],
-                        }),
+                        opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] }),
+                        transform: [
+                          {
+                            scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1.85] }),
+                          },
+                        ],
                       },
-                    ],
-                  },
-                ]}
-              >
-                <Ionicons name="car-sport" size={26} color={Colors.primary} />
-              </Animated.View>
+                    ]}
+                  />
+                ))}
+                <Animated.View
+                  style={[
+                    styles.pulseCircle,
+                    {
+                      transform: [
+                        {
+                          scale: searchPulse.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.94, 1.06],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <Ionicons name="car-sport" size={28} color={Colors.primary} />
+                </Animated.View>
+              </View>
 
               <Text style={styles.pendingTitle}>
-                {nearbyCount > 0
-                  ? `Finding a captain near you`
-                  : 'Looking for captains nearby'}
+                {nearbyCount > 0 ? 'Finding a captain near you' : 'Looking for captains nearby'}
               </Text>
               <Text style={styles.pendingSubtitle}>
                 {nearbyCount > 0
                   ? `${nearbyCount} captain${nearbyCount === 1 ? '' : 's'} in range · hang tight`
-                  : 'We’ll keep searching. Use Contact if you need help.'}
+                  : 'Hang tight — we’re matching you with the nearest captain'}
               </Text>
 
               <View style={styles.liveStats}>
@@ -316,10 +355,8 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statBox}>
-                  <Text style={[styles.statNumber, { color: '#F59E0B', fontSize: FontSizes.md }]}>
-                    Live
-                  </Text>
-                  <Text style={styles.statLabel}>Search</Text>
+                  <Text style={[styles.statNumber, { color: '#F59E0B' }]}>•</Text>
+                  <Text style={styles.statLabel}>Searching</Text>
                 </View>
               </View>
             </View>
@@ -383,19 +420,19 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
             )}
           </View>
 
-          {/* OTP + Fare + Distance from booking */}
+          {/* OTP + Fare + Distance — equal tiles */}
           <View style={styles.infoRow}>
-            <View style={styles.otpBox}>
-              <Text style={styles.otpLabel}>Your OTP</Text>
-              <Text style={styles.otpValue}>{displayOtp || '——'}</Text>
+            <View style={[styles.infoTile, styles.otpBox]}>
+              <Text style={styles.otpLabel}>OTP</Text>
+              <Text style={styles.otpValue} numberOfLines={1}>{displayOtp || '——'}</Text>
             </View>
-            <View style={styles.fareBox}>
+            <View style={[styles.infoTile, styles.fareBox]}>
               <Text style={styles.fareLabel}>Fare</Text>
-              <Text style={styles.fareValue}>{fareDisplay}</Text>
+              <Text style={styles.fareValue} numberOfLines={1}>{fareDisplay}</Text>
             </View>
-            <View style={styles.distBox}>
+            <View style={[styles.infoTile, styles.distBox]}>
               <Text style={styles.distLabel}>Distance</Text>
-              <Text style={styles.distValue}>{distanceDisplay}</Text>
+              <Text style={styles.distValue} numberOfLines={1}>{distanceDisplay}</Text>
             </View>
           </View>
 
@@ -416,31 +453,41 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
             </View>
           )}
 
-          {/* Actions */}
+          {/* Actions — equal width buttons */}
           {!showRating && ride.status !== 'completed' && ride.status !== 'cancelled' && (
             <View style={styles.actions}>
+              {ride.status === 'pending' && (
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.contactBtn]}
+                  onPress={() => setShowHelpModal(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="call-outline" size={18} color="#166534" />
+                  <Text style={styles.contactBtnText}>Contact</Text>
+                </TouchableOpacity>
+              )}
               {(ride.status === 'accepted' || ride.status === 'started') && (
-                <TouchableOpacity style={styles.shareBtn} onPress={handleShareTrip}>
+                <TouchableOpacity style={[styles.actionBtn, styles.shareBtn]} onPress={handleShareTrip}>
                   <Ionicons name="share-social" size={18} color={Colors.primary} />
                   <Text style={styles.shareBtnText}>Share</Text>
                 </TouchableOpacity>
               )}
               {ride.status === 'started' && (
-                <TouchableOpacity style={styles.sosBtn} onPress={handleSOS}>
+                <TouchableOpacity style={[styles.actionBtn, styles.sosBtn]} onPress={handleSOS}>
                   <Ionicons name="warning" size={18} color="#FFF" />
                   <Text style={styles.sosBtnText}>SOS</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+              <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={handleCancel}>
                 <Ionicons name="close-circle" size={18} color="#EF4444" />
-                <Text style={styles.cancelBtnText}>Cancel Ride</Text>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Help contact modal */}
+      {/* Help contact modal — equal call buttons */}
       <Modal visible={showHelpModal} transparent animationType="fade" onRequestClose={() => setShowHelpModal(false)}>
         <View style={styles.cancelModalOverlay}>
           <View style={styles.helpModalContent}>
@@ -454,25 +501,26 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({ ride, onRideCo
               </TouchableOpacity>
             </View>
             <Text style={styles.helpModalHint}>
-              Need help while we search for a captain? Call our help desk.
+              Need help while we search? Call our help desk.
             </Text>
-            {HELP_LINES.map((line, index) => (
-              <TouchableOpacity
-                key={line.phone}
-                style={[styles.helpCallRow, index === HELP_LINES.length - 1 && { borderBottomWidth: 0 }]}
-                onPress={() => callHelpLine(line.phone)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.helpCallIcon}>
-                  <Ionicons name="call" size={16} color="#FFF" />
-                </View>
-                <View style={styles.helpCallTextContainer}>
-                  <Text style={styles.helpCallLabel}>{line.label}</Text>
-                  <Text style={styles.helpCallNumber}>{line.display}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#CCC" />
-              </TouchableOpacity>
-            ))}
+            <View style={styles.helpButtons}>
+              {HELP_LINES.map((line) => (
+                <TouchableOpacity
+                  key={line.phone}
+                  style={styles.helpCallBtn}
+                  onPress={() => callHelpLine(line.phone)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.helpCallIcon}>
+                    <Ionicons name="call" size={18} color="#FFF" />
+                  </View>
+                  <View style={styles.helpCallTextContainer}>
+                    <Text style={styles.helpCallLabel}>{line.label}</Text>
+                    <Text style={styles.helpCallNumber}>{line.display}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       </Modal>
@@ -553,22 +601,35 @@ const styles = StyleSheet.create({
   statusText: { color: '#FFF', fontSize: FontSizes.sm, fontWeight: FontWeights.bold, marginLeft: 6 },
   etaBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3E8FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   etaText: { fontSize: FontSizes.xs, fontWeight: FontWeights.bold, color: Colors.primary, marginLeft: 4 },
-  helpChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#DCFCE7',
-    borderWidth: 1,
-    borderColor: '#86EFAC',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  helpChipText: { fontSize: FontSizes.sm, fontWeight: FontWeights.bold, color: '#166534' },
 
-  // Pending
+  // Pending + radar
   pendingContainer: { alignItems: 'center', paddingVertical: Spacing.sm },
-  pulseCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
+  radarWrap: {
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  radarRing: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '12',
+  },
+  pulseCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F3E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.primary + '40',
+  },
   pendingTitle: {
     fontSize: FontSizes.md,
     fontWeight: FontWeights.bold,
@@ -582,22 +643,41 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: Spacing.md,
     paddingHorizontal: Spacing.sm,
+    lineHeight: 18,
   },
-  liveStats: { flexDirection: 'row', backgroundColor: '#F8F9FA', borderRadius: 12, padding: Spacing.md, width: '100%' },
+  liveStats: { flexDirection: 'row', backgroundColor: '#F8F9FA', borderRadius: 12, paddingVertical: 14, paddingHorizontal: Spacing.md, width: '100%' },
   statBox: { flex: 1, alignItems: 'center' },
-  statNumber: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.primary },
+  statNumber: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.primary, minHeight: 24 },
   statLabel: { fontSize: FontSizes.xs, color: '#666', marginTop: 2 },
   statDivider: { width: 1, backgroundColor: '#E0E0E0', marginHorizontal: 8 },
 
-  // Help modal rows
+  // Help modal — equal call buttons
   helpModalContent: { backgroundColor: '#FFF', borderRadius: 16, padding: Spacing.lg, width: '100%' },
   helpModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
   helpModalTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: '#000', flex: 1 },
-  helpModalHint: { fontSize: FontSizes.sm, color: '#666', marginBottom: Spacing.md },
-  helpCallRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  helpCallIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
+  helpModalHint: { fontSize: FontSizes.sm, color: '#666', marginBottom: Spacing.md, lineHeight: 18 },
+  helpButtons: { gap: 10 },
+  helpCallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 64,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  helpCallIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#22C55E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
   helpCallTextContainer: { flex: 1 },
-  helpCallLabel: { fontSize: FontSizes.xs, color: '#888', fontWeight: FontWeights.medium, marginBottom: 2 },
+  helpCallLabel: { fontSize: FontSizes.xs, color: '#166534', fontWeight: FontWeights.semibold, marginBottom: 2 },
   helpCallNumber: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#000', letterSpacing: 0.5 },
 
   // Driver
@@ -620,17 +700,26 @@ const styles = StyleSheet.create({
   locLabel: { fontSize: FontSizes.xs, color: '#999', marginBottom: 2 },
   locAddress: { fontSize: FontSizes.sm, color: '#000', fontWeight: FontWeights.medium, lineHeight: 18 },
 
-  // Info row
+  // Equal info tiles
   infoRow: { flexDirection: 'row', marginBottom: Spacing.md, gap: 8 },
-  otpBox: { flex: 1, backgroundColor: '#F3E8FF', borderRadius: 10, padding: Spacing.sm, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed' },
-  otpLabel: { fontSize: FontSizes.xs, color: Colors.primary, fontWeight: FontWeights.semibold },
-  otpValue: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.primary, letterSpacing: 4 },
-  fareBox: { flex: 1, backgroundColor: '#E8F5E9', borderRadius: 10, padding: Spacing.sm, alignItems: 'center' },
-  fareLabel: { fontSize: FontSizes.xs, color: '#4CAF50', fontWeight: FontWeights.semibold },
+  infoTile: {
+    flex: 1,
+    minHeight: 72,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpBox: { backgroundColor: '#F3E8FF', borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed' },
+  otpLabel: { fontSize: FontSizes.xs, color: Colors.primary, fontWeight: FontWeights.semibold, marginBottom: 4 },
+  otpValue: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.primary, letterSpacing: 2 },
+  fareBox: { backgroundColor: '#E8F5E9' },
+  fareLabel: { fontSize: FontSizes.xs, color: '#4CAF50', fontWeight: FontWeights.semibold, marginBottom: 4 },
   fareValue: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: '#2E7D32' },
-  distBox: { flex: 1, backgroundColor: '#E3F2FD', borderRadius: 10, padding: Spacing.sm, alignItems: 'center' },
-  distLabel: { fontSize: FontSizes.xs, color: '#1976D2', fontWeight: FontWeights.semibold },
-  distValue: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#1565C0' },
+  distBox: { backgroundColor: '#E3F2FD' },
+  distLabel: { fontSize: FontSizes.xs, color: '#1976D2', fontWeight: FontWeights.semibold, marginBottom: 4 },
+  distValue: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: '#1565C0' },
 
   // Rating
   ratingSection: { alignItems: 'center', marginTop: Spacing.md },
@@ -639,13 +728,25 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 40, borderRadius: 20 },
   submitBtnText: { color: '#FFF', fontSize: FontSizes.md, fontWeight: FontWeights.bold },
 
-  // Actions
+  // Equal action buttons
   actions: { flexDirection: 'row', gap: 10, marginTop: Spacing.md },
-  sosBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF4444', paddingVertical: 12, borderRadius: 10, gap: 6 },
-  shareBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3E8FF', paddingVertical: 12, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: Colors.primary },
-  shareBtnText: { color: Colors.primary, fontWeight: '700' as const, fontSize: 14 },
+  actionBtn: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  contactBtn: { backgroundColor: '#DCFCE7', borderWidth: 1, borderColor: '#86EFAC' },
+  contactBtnText: { color: '#166534', fontSize: FontSizes.sm, fontWeight: FontWeights.bold },
+  sosBtn: { backgroundColor: '#EF4444' },
+  shareBtn: { backgroundColor: '#F3E8FF', borderWidth: 1, borderColor: Colors.primary },
+  shareBtnText: { color: Colors.primary, fontWeight: '700' as const, fontSize: FontSizes.sm },
   sosBtnText: { color: '#FFF', fontSize: FontSizes.sm, fontWeight: FontWeights.bold },
-  cancelBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEE2E2', paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#EF4444', gap: 6 },
+  cancelBtn: { backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#EF4444' },
   cancelBtnText: { color: '#EF4444', fontSize: FontSizes.sm, fontWeight: FontWeights.bold },
 
   // Cancel Modal
@@ -657,8 +758,8 @@ const styles = StyleSheet.create({
   cancelReasonText: { fontSize: FontSizes.md, color: '#333', flex: 1 },
   cancelReasonInput: { backgroundColor: '#F5F5F5', borderRadius: 10, padding: Spacing.md, fontSize: FontSizes.md, color: '#000', minHeight: 60, textAlignVertical: 'top', marginTop: 4, marginBottom: 8, borderWidth: 1, borderColor: '#E0E0E0' },
   cancelModalActions: { flexDirection: 'row', gap: 10, marginTop: Spacing.md },
-  cancelModalBack: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#F5F5F5', alignItems: 'center' },
+  cancelModalBack: { flex: 1, minHeight: 48, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' },
   cancelModalBackText: { fontSize: FontSizes.md, fontWeight: FontWeights.semibold, color: '#666' },
-  cancelModalConfirm: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#EF4444', alignItems: 'center' },
+  cancelModalConfirm: { flex: 1, minHeight: 48, paddingVertical: 12, borderRadius: 12, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center' },
   cancelModalConfirmText: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#FFF' },
 });
