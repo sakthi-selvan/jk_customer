@@ -13,12 +13,14 @@ import {
   PanResponder,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EnhancedRide } from '../../types/enhanced';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../constants/theme';
 import { bookingEnhancedApi } from '../../api/booking-enhanced';
 import { useAuthStore } from '../../store/authStore';
+import { mediaUrl } from '../../utils/mediaUrl';
 
 const { height } = Dimensions.get('window');
 const MIN_HEIGHT = 240;
@@ -410,16 +412,29 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
           {(ride.status === 'accepted' || ride.status === 'started') && (
             <View style={styles.driverSection}>
               <View style={styles.driverRow}>
-                <View style={styles.driverAvatar}>
-                  <Text style={styles.driverAvatarText}>
-                    {(ride.driver_name || 'D').charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                {ride.driver_vehicle_image ? (
+                  <Image
+                    source={{ uri: mediaUrl(ride.driver_vehicle_image) }}
+                    style={styles.vehiclePhoto}
+                  />
+                ) : (
+                  <View style={styles.driverAvatar}>
+                    <Text style={styles.driverAvatarText}>
+                      {(ride.driver_name || 'D').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.driverInfo}>
                   <Text style={styles.driverName}>{ride.driver_name || 'Captain'}</Text>
-                  <Text style={styles.driverVehicle}>
-                    {ride.driver_vehicle_number || 'Vehicle'} • {ride.driver_vehicle_type || 'Car'}
+                  <Text style={styles.driverVehicleType}>
+                    {ride.driver_vehicle_type || ride.vehicle_category || 'Vehicle'}
                   </Text>
+                  <View style={styles.plateBadge}>
+                    <Ionicons name="car" size={12} color={Colors.primary} />
+                    <Text style={styles.plateText}>
+                      {(ride.driver_vehicle_number || '—— ——').toUpperCase()}
+                    </Text>
+                  </View>
                 </View>
                 <TouchableOpacity style={styles.callButton} onPress={handleCallDriver}>
                   <Ionicons name="call" size={18} color="#FFF" />
@@ -430,7 +445,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
                 <View style={styles.arrivalBanner}>
                   <Ionicons name="navigate" size={16} color={Colors.primary} />
                   <Text style={styles.arrivalText}>
-                    Arriving in {timeDisplay} · share OTP when you board
+                    Match the plate above · arriving in {timeDisplay}
                   </Text>
                 </View>
               )}
@@ -763,14 +778,39 @@ const styles = StyleSheet.create({
   // Driver
   driverSection: { marginBottom: Spacing.sm },
   driverRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
-  driverAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  driverAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   driverAvatarText: { fontSize: 18, fontWeight: FontWeights.bold, color: '#FFF' },
+  vehiclePhoto: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: '#EEE',
+  },
   driverInfo: { flex: 1, marginLeft: Spacing.md },
   driverName: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#000' },
-  driverVehicle: { fontSize: FontSizes.sm, color: '#666', marginTop: 2 },
+  driverVehicleType: { fontSize: FontSizes.sm, color: '#666', marginTop: 2 },
+  plateBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1,
+    borderColor: Colors.primary + '55',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  plateText: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.bold,
+    color: Colors.primary,
+    letterSpacing: 1,
+  },
   callButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#4CAF50', alignItems: 'center', justifyContent: 'center' },
   arrivalBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 8, padding: Spacing.sm, gap: 8 },
-  arrivalText: { fontSize: FontSizes.sm, color: '#333', fontWeight: FontWeights.medium },
+  arrivalText: { fontSize: FontSizes.sm, color: '#333', fontWeight: FontWeights.medium, flex: 1 },
 
   // Locations
   locationsCard: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: Spacing.md, marginBottom: Spacing.md },

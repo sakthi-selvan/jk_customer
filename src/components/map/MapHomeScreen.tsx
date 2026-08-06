@@ -370,7 +370,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
           pickupLocation={{ latitude: (activeRide as any).pickup_lat, longitude: (activeRide as any).pickup_lng }}
           dropoffLocation={(activeRide as any).dropoff_lat ? { latitude: (activeRide as any).dropoff_lat, longitude: (activeRide as any).dropoff_lng } : null}
           driverLocation={driverLocation}
-          vehicleCategory={(activeRide as any).vehicle_category || (activeRide as any).driver_vehicle_type}
+          vehicleCategory={(activeRide as any).driver_vehicle_type || (activeRide as any).vehicle_category}
           nearbyPins={activeRide.status === 'pending' ? searchingNearbyPins : undefined}
           onEtaUpdate={(dist, dur) => setLiveEta({ distance: dist, duration: dur })}
         />

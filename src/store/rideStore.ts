@@ -228,6 +228,7 @@ export const useRideStore = create<RideState>((set, get) => ({
                     driver_phone: null,
                     driver_vehicle_number: null,
                     driver_vehicle_type: null,
+                    driver_vehicle_image: null,
                   } as any)
                 : null,
               driverLocation: null,

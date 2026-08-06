@@ -107,6 +107,7 @@ export interface EnhancedRide {
   driver_phone?: string;
   driver_vehicle_number?: string;
   driver_vehicle_type?: string;
+  driver_vehicle_image?: string;
   rejection_count?: number;
   created_at: string;
   updated_at: string;
