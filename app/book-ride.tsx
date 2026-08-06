@@ -606,21 +606,33 @@ export default function BookRideScreen() {
           </TouchableOpacity>
         ))}
 
-        {/* Fare distance info */}
-        {fareBreakdown?.distance_km && (
-          <View style={styles.distanceInfo}>
-            <Ionicons name="navigate" size={14} color={Colors.primary} />
-            <Text style={styles.distanceText}>
-              {fareBreakdown.distance_km.toFixed(1)} km • ~{Math.ceil(fareBreakdown.distance_km * 2)} min
-            </Text>
-          </View>
-        )}
-
-        <View style={{ height: 200 }} />
+        <View style={{ height: 220 }} />
       </ScrollView>
 
-      {/* Bottom bar: options + book button */}
+      {/* Bottom bar: ETA + options + book — always visible */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 16 }]}>
+        <View style={styles.etaBar}>
+          <View style={styles.etaBarLeft}>
+            <Ionicons name="navigate" size={16} color={Colors.primary} />
+            <Text style={styles.etaBarText}>
+              {fareBreakdown?.distance_km
+                ? `${fareBreakdown.distance_km.toFixed(1)} km · ~${
+                    fareBreakdown.duration_minutes
+                      ? Math.max(1, Math.ceil(fareBreakdown.duration_minutes))
+                      : Math.max(1, Math.ceil(fareBreakdown.distance_km * 2.5))
+                  } min`
+                : calculatingFares
+                  ? 'Calculating route…'
+                  : 'Select a vehicle'}
+            </Text>
+          </View>
+          {!!fareBreakdown?.distance_km && (
+            <Text style={styles.etaBarFare}>
+              ₹{Math.round(fareBreakdown.total)}
+            </Text>
+          )}
+        </View>
+
         {/* Option icons row */}
         <View style={styles.optionsRow}>
           <TouchableOpacity style={[styles.optionChip, !rideNow && styles.optionChipActive]}
@@ -802,6 +814,15 @@ export default function BookRideScreen() {
               <View style={[styles.headerDot, { backgroundColor: '#F44336' }]} />
               <Text style={styles.headerLocText} numberOfLines={1}>{dropoffLocation?.name}</Text>
             </View>
+            {!!fareBreakdown?.distance_km && (
+              <Text style={styles.headerEtaText}>
+                {fareBreakdown.distance_km.toFixed(1)} km · ~
+                {fareBreakdown.duration_minutes
+                  ? Math.max(1, Math.ceil(fareBreakdown.duration_minutes))
+                  : Math.max(1, Math.ceil(fareBreakdown.distance_km * 2.5))}{' '}
+                min
+              </Text>
+            )}
           </TouchableOpacity>
         )}
 
@@ -825,6 +846,13 @@ const styles = StyleSheet.create({
   headerLocRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
   headerDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
   headerLocText: { fontSize: FontSizes.sm, color: '#333', flex: 1 },
+  headerEtaText: {
+    marginTop: 4,
+    marginLeft: 16,
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.semibold,
+    color: Colors.primary,
+  },
 
   content: { flex: 1 },
 
@@ -906,12 +934,23 @@ const styles = StyleSheet.create({
   vehiclePriceText: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: '#333' },
   vehiclePriceActive: { color: Colors.primary },
   vehiclePriceDash: { fontSize: FontSizes.lg, color: '#CCC' },
-  distanceInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: Spacing.sm, backgroundColor: '#F0F9FF', borderRadius: BorderRadius.md, marginTop: Spacing.xs },
-  distanceText: { fontSize: FontSizes.sm, color: '#333', marginLeft: 6, fontWeight: FontWeights.medium },
 
   // Bottom bar
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFF', paddingHorizontal: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: '#E0E0E0' },
-  optionsRow: { flexDirection: 'row', marginBottom: Spacing.md, gap: 8 },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFF', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: '#E0E0E0' },
+  etaBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0F5FF',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: Spacing.sm,
+  },
+  etaBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  etaBarText: { fontSize: FontSizes.sm, fontWeight: FontWeights.semibold, color: '#1E3A8A', flexShrink: 1 },
+  etaBarFare: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: Colors.primary, marginLeft: 8 },
+  optionsRow: { flexDirection: 'row', marginBottom: Spacing.sm, gap: 8 },
   optionChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F5F5F5', gap: 4 },
   optionChipActive: { backgroundColor: '#F0E8FF', borderWidth: 1, borderColor: Colors.primary },
   optionChipText: { fontSize: FontSizes.xs, color: '#666', fontWeight: FontWeights.medium },
