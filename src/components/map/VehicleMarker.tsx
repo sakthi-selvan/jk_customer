@@ -1,5 +1,5 @@
 /**
- * Top-down vehicle markers for the map (tight icon style, no halo).
+ * Top-down vehicle markers — cropped photo icons, transparent background (no halo).
  */
 import React from 'react';
 import { View, Text, Image, StyleSheet, ImageSourcePropType } from 'react-native';
@@ -61,20 +61,23 @@ interface VehicleMarkerProps {
 
 export const VehicleMarker: React.FC<VehicleMarkerProps> = ({
   category,
-  size = 36,
+  size = 40,
   heading = null,
 }) => {
   const key = (TOP_VIEW[category] ? category : normalizeFleetCategory(category)) as string;
   const source = TOP_VIEW[key] || TOP_VIEW.other;
   const rotation = typeof heading === 'number' && Number.isFinite(heading) ? heading : 0;
+  // Top-view assets are taller than wide — avoid square letterboxing.
+  const width = Math.round(size * 0.55);
+  const height = size;
 
   return (
     <View
       style={[
         styles.wrap,
         {
-          width: size,
-          height: size,
+          width,
+          height,
           transform: [{ rotate: `${rotation}deg` }],
         },
       ]}
@@ -88,7 +91,7 @@ export const VehicleMarkerLegend: React.FC<{ category: FleetCategory }> = ({ cat
   const cfg = STYLE[category] || STYLE.other;
   return (
     <View style={styles.legendRow}>
-      <VehicleMarker category={category} size={26} />
+      <VehicleMarker category={category} size={28} />
       <Text style={styles.legendText}>{cfg.label}</Text>
     </View>
   );
@@ -99,6 +102,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
+    overflow: 'visible',
   },
   image: {
     width: '100%',
