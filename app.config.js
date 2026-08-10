@@ -11,7 +11,7 @@ export default {
     splash: {
       image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
-      backgroundColor: "#4C1D95",
+      backgroundColor: "#0B3A8A",
     },
     ios: {
       supportsTablet: true,
@@ -33,7 +33,7 @@ export default {
       versionCode: 1,
       adaptiveIcon: {
         foregroundImage: "./assets/images/android-icon-foreground.png",
-        backgroundColor: "#4C1D95",
+        backgroundColor: "#0B3A8A",
       },
       permissions: [
         "ACCESS_COARSE_LOCATION",
@@ -69,12 +69,12 @@ export default {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#4C1D95",
+          backgroundColor: "#0B3A8A",
           dark: {
             image: "./assets/images/splash-icon.png",
             imageWidth: 200,
             resizeMode: "contain",
-            backgroundColor: "#4C1D95",
+            backgroundColor: "#0B3A8A",
           },
         },
       ],

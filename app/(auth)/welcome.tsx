@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: Spacing.xl,
   },
-  logo: { width: 140, height: 140, marginBottom: Spacing.lg },
+  logo: { width: 260, height: 120, marginBottom: Spacing.lg },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',

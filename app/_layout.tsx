@@ -48,7 +48,7 @@ export default function RootLayout() {
     return (
       <View style={styles.boot}>
         <Image
-          source={require('../assets/images/splash-icon.png')}
+          source={require('../assets/images/jk_taxi_logo.png')}
           style={styles.bootLogo}
           resizeMode="contain"
         />
@@ -100,12 +100,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4C1D95',
+    backgroundColor: '#0B3A8A',
     paddingHorizontal: 32,
   },
   bootLogo: {
-    width: 168,
-    height: 168,
+    width: 280,
+    height: 140,
   },
   bootTitle: {
     marginTop: 20,
