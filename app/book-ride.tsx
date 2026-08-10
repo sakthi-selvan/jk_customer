@@ -33,12 +33,29 @@ const TRIP_TYPES = [
   { type: TripType.OUTSTATION, label: 'Outstation', icon: 'car-sport' },
 ];
 
+/** Uber/Ola-style hourly packages — 10 km included per hour. */
+const RENTAL_PACKAGES = [
+  { hours: 1, km: 10, label: '1 hour' },
+  { hours: 2, km: 20, label: '2 hours' },
+  { hours: 4, km: 40, label: '4 hours' },
+  { hours: 8, km: 80, label: '8 hours' },
+] as const;
+
+/** Market package ₹/hr (India rentals, 2026) — used if API hourly_rate missing. */
+const MARKET_HOURLY: Record<string, number> = {
+  bike: 129,
+  auto: 149,
+  mini: 189,
+  sedan: 249,
+  suv: 399,
+};
+
 const VEHICLE_FALLBACK = [
-  { type: VehicleCategory.BIKE, name: 'Bike', icon: 'bicycle', capacity: '1 seat', examples: 'Activa, Pulsar', color: '#F97316' },
-  { type: VehicleCategory.AUTO, name: 'Auto', icon: 'bus', capacity: '3 seats', examples: 'Auto rickshaw', color: '#EAB308' },
-  { type: VehicleCategory.MINI, name: 'Mini', icon: 'car-outline', capacity: '4 seats', examples: 'WagonR, Alto', color: '#4CAF50' },
-  { type: VehicleCategory.SEDAN, name: 'Sedan', icon: 'car-sport-outline', capacity: '4 seats', examples: 'Dzire, Etios', color: '#2196F3' },
-  { type: VehicleCategory.SUV, name: 'SUV', icon: 'car', capacity: '6-7 seats', examples: 'Ertiga, Innova', color: '#FF9800' },
+  { type: VehicleCategory.BIKE, name: 'Bike', icon: 'bicycle', capacity: '1 seat', examples: 'Activa, Pulsar', color: '#F97316', hourly_rate: 129 },
+  { type: VehicleCategory.AUTO, name: 'Auto', icon: 'bus', capacity: '3 seats', examples: 'Auto rickshaw', color: '#EAB308', hourly_rate: 149 },
+  { type: VehicleCategory.MINI, name: 'Mini', icon: 'car-outline', capacity: '4 seats', examples: 'WagonR, Alto', color: '#4CAF50', hourly_rate: 189 },
+  { type: VehicleCategory.SEDAN, name: 'Sedan', icon: 'car-sport-outline', capacity: '4 seats', examples: 'Dzire, Etios', color: '#2196F3', hourly_rate: 249 },
+  { type: VehicleCategory.SUV, name: 'SUV', icon: 'car', capacity: '6-7 seats', examples: 'Ertiga, Innova', color: '#FF9800', hourly_rate: 399 },
 ];
 
 const VEHICLE_META: Record<string, { icon: string; color: string }> = {
@@ -79,6 +96,7 @@ export default function BookRideScreen() {
 
   // Options (defaults applied if not changed)
   const [tripType, setTripType] = useState<TripType>(TripType.ONE_WAY);
+  const [rentalHours, setRentalHours] = useState(1);
   const [rideNow, setRideNow] = useState(true);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
@@ -160,13 +178,20 @@ export default function BookRideScreen() {
     if (pickupLocation && dropoffLocation) {
       calculateAllFares();
     }
-  }, [pickupLocation, dropoffLocation, tripType, vehicleOptions]);
+  }, [pickupLocation, dropoffLocation, tripType, vehicleOptions, rentalHours]);
 
   useEffect(() => {
     if (pickupLocation && dropoffLocation && selectedVehicle) {
       fetchFareBreakdown();
     }
-  }, [selectedVehicle, pickupLocation, dropoffLocation, tripType]);
+  }, [selectedVehicle, pickupLocation, dropoffLocation, tripType, rentalHours]);
+
+  useEffect(() => {
+    if (tripType === TripType.RENTAL && String(selectedVehicle) === 'bike') {
+      const first = vehicleOptions.find((v) => String(v.type) !== 'bike');
+      if (first) setSelectedVehicle(first.type as VehicleCategory);
+    }
+  }, [tripType, selectedVehicle, vehicleOptions]);
 
   const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
     const R = 6371;
@@ -196,8 +221,31 @@ export default function BookRideScreen() {
     let billedKm = roadKm;
 
     if (trip === TripType.RENTAL) {
-      baseFare = hourly;
-      distanceFare = Math.max(0, roadKm - 10) * perKm;
+      const hours = Math.max(1, rentalHours || 1);
+      const hourlyRate =
+        Number(vehicle.hourly_rate) ||
+        MARKET_HOURLY[String(vehicle.type)] ||
+        189;
+      // GST-inclusive market package (matches backend rental calc)
+      const packageTotal = hourlyRate * hours;
+      billedKm = 10 * hours;
+      baseFare = Math.round((packageTotal / 1.05) * 100) / 100;
+      distanceFare = 0;
+      platformFee = 0;
+      const gst = Math.round((packageTotal - baseFare) * 100) / 100;
+      return {
+        base_fare: baseFare,
+        distance_fare: 0,
+        platform_fee: 0,
+        gst,
+        toll_charges: 0,
+        night_charges: 0,
+        waiting_charges: 0,
+        total: packageTotal,
+        distance_km: billedKm,
+        duration_minutes: hours * 60,
+        route_source: 'estimate',
+      };
     } else if (trip === TripType.ROUND_TRIP) {
       // Exact 2× one-way (outbound + return)
       billedKm = roadKm * 2;
@@ -316,6 +364,7 @@ export default function BookRideScreen() {
               dropoff_lng: dropoffLocation.longitude,
               vehicle_category: String(v.type),
               trip_type: tripType,
+              rental_hours: tripType === TripType.RENTAL ? rentalHours : undefined,
             });
             newFares[v.type] = fare.total;
           } catch (err: any) {
@@ -361,6 +410,7 @@ export default function BookRideScreen() {
         dropoff_lng: dropoffLocation.longitude,
         vehicle_category: String(selectedVehicle),
         trip_type: tripType,
+        rental_hours: tripType === TripType.RENTAL ? rentalHours : undefined,
       });
       setFareBreakdown(fare);
     } catch (err: any) {
@@ -411,6 +461,7 @@ export default function BookRideScreen() {
         driver_notes: driverNotes || undefined,
         payment_method: paymentMethod,
         stops: [],
+        ...(tripType === TripType.RENTAL ? { rental_hours: rentalHours } : {}),
       };
 
       const ride = await bookingEnhancedApi.createBooking(bookingData);
@@ -584,38 +635,107 @@ export default function BookRideScreen() {
         </View>
       ) : null}
       <ScrollView style={styles.vehicleList} showsVerticalScrollIndicator={false}>
-        {vehicleOptions.map((v) => (
-          <TouchableOpacity
-            key={v.type}
-            style={[styles.vehicleCard, selectedVehicle === v.type && styles.vehicleCardSelected]}
-            onPress={() => setSelectedVehicle(v.type as VehicleCategory)}
-          >
-            <VehicleCategoryImage
-              type={String(v.type)}
-              fallbackIcon={v.icon}
-              fallbackColor={v.color}
-            />
-            <View style={styles.vehicleInfo}>
-              <Text style={styles.vehicleName}>{v.name}</Text>
-              <Text style={styles.vehicleMeta}>
-                {v.capacity} • {v.examples}
-                {typeof v.base_fare === 'number' ? ` • Base ₹${Math.round(v.base_fare)}` : ''}
-                {typeof v.per_km_rate === 'number' ? ` + ₹${v.per_km_rate}/km` : ''}
-              </Text>
+        {tripType === TripType.RENTAL ? (
+          <Text style={styles.rentalHint}>
+            Pick a package under each vehicle · ~10 km included per hour (Uber/Ola style)
+          </Text>
+        ) : null}
+        {(tripType === TripType.RENTAL
+          ? vehicleOptions.filter((v) => String(v.type) !== 'bike')
+          : vehicleOptions
+        ).map((v) => {
+          const hourly =
+            Number(v.hourly_rate) || MARKET_HOURLY[String(v.type)] || 189;
+          const selected = selectedVehicle === v.type;
+          return (
+            <View
+              key={v.type}
+              style={[styles.vehicleCard, selected && styles.vehicleCardSelected]}
+            >
+              <TouchableOpacity
+                style={styles.vehicleCardHeader}
+                onPress={() => {
+                  setSelectedVehicle(v.type as VehicleCategory);
+                  if (tripType !== TripType.RENTAL) return;
+                }}
+                activeOpacity={0.85}
+              >
+                <VehicleCategoryImage
+                  type={String(v.type)}
+                  fallbackIcon={v.icon}
+                  fallbackColor={v.color}
+                />
+                <View style={styles.vehicleInfo}>
+                  <Text style={styles.vehicleName}>{v.name}</Text>
+                  <Text style={styles.vehicleMeta}>
+                    {v.capacity} • {v.examples}
+                    {tripType === TripType.RENTAL
+                      ? ` • ₹${Math.round(hourly)}/hr`
+                      : typeof v.base_fare === 'number'
+                        ? ` • Base ₹${Math.round(v.base_fare)}`
+                        : ''}
+                    {tripType !== TripType.RENTAL && typeof v.per_km_rate === 'number'
+                      ? ` + ₹${v.per_km_rate}/km`
+                      : ''}
+                  </Text>
+                </View>
+                {tripType !== TripType.RENTAL ? (
+                  <View style={styles.vehiclePrice}>
+                    {calculatingFares ? (
+                      <ActivityIndicator size="small" color={Colors.primary} />
+                    ) : fares[v.type] ? (
+                      <Text
+                        style={[
+                          styles.vehiclePriceText,
+                          selected && styles.vehiclePriceActive,
+                        ]}
+                      >
+                        ₹{Math.round(fares[v.type])}
+                      </Text>
+                    ) : (
+                      <Text style={styles.vehiclePriceDash}>-</Text>
+                    )}
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+
+              {tripType === TripType.RENTAL ? (
+                <View style={styles.rentalPackages}>
+                  {RENTAL_PACKAGES.map((pkg) => {
+                    const price = Math.round(hourly * pkg.hours);
+                    const active = selected && rentalHours === pkg.hours;
+                    return (
+                      <TouchableOpacity
+                        key={`${v.type}-${pkg.hours}`}
+                        style={[styles.rentalPkgRow, active && styles.rentalPkgRowActive]}
+                        onPress={() => {
+                          setSelectedVehicle(v.type as VehicleCategory);
+                          setRentalHours(pkg.hours);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <View style={styles.rentalPkgLeft}>
+                          <View style={[styles.rentalRadio, active && styles.rentalRadioActive]}>
+                            {active ? <View style={styles.rentalRadioDot} /> : null}
+                          </View>
+                          <View>
+                            <Text style={[styles.rentalPkgTitle, active && styles.rentalPkgTitleActive]}>
+                              {pkg.label}
+                            </Text>
+                            <Text style={styles.rentalPkgSub}>{pkg.km} km included</Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.rentalPkgPrice, active && styles.rentalPkgPriceActive]}>
+                          ₹{price}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : null}
             </View>
-            <View style={styles.vehiclePrice}>
-              {calculatingFares ? (
-                <ActivityIndicator size="small" color={Colors.primary} />
-              ) : fares[v.type] ? (
-                <Text style={[styles.vehiclePriceText, selectedVehicle === v.type && styles.vehiclePriceActive]}>
-                  ₹{Math.round(fares[v.type])}
-                </Text>
-              ) : (
-                <Text style={styles.vehiclePriceDash}>-</Text>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
+          );
+        })}
 
         <View style={{ height: 220 }} />
       </ScrollView>
@@ -626,20 +746,30 @@ export default function BookRideScreen() {
           <View style={styles.etaBarLeft}>
             <Ionicons name="navigate" size={16} color={Colors.primary} />
             <Text style={styles.etaBarText}>
-              {fareBreakdown?.distance_km
-                ? `${fareBreakdown.distance_km.toFixed(1)} km · ~${
-                    fareBreakdown.duration_minutes
-                      ? Math.max(1, Math.ceil(fareBreakdown.duration_minutes))
-                      : Math.max(1, Math.ceil(fareBreakdown.distance_km * 2.5))
-                  } min`
-                : calculatingFares
-                  ? 'Calculating route…'
-                  : 'Select a vehicle'}
+              {tripType === TripType.RENTAL
+                ? `${rentalHours} hr package · ${rentalHours * 10} km included`
+                : fareBreakdown?.distance_km
+                  ? `${fareBreakdown.distance_km.toFixed(1)} km · ~${
+                      fareBreakdown.duration_minutes
+                        ? Math.max(1, Math.ceil(fareBreakdown.duration_minutes))
+                        : Math.max(1, Math.ceil(fareBreakdown.distance_km * 2.5))
+                    } min`
+                  : calculatingFares
+                    ? 'Calculating route…'
+                    : 'Select a vehicle'}
             </Text>
           </View>
-          {!!fareBreakdown?.distance_km && (
+          {(tripType === TripType.RENTAL || !!fareBreakdown?.distance_km) && (
             <Text style={styles.etaBarFare}>
-              ₹{Math.round(fareBreakdown.total)}
+              ₹{Math.round(
+                tripType === TripType.RENTAL
+                  ? (Number(
+                      vehicleOptions.find((x) => x.type === selectedVehicle)?.hourly_rate
+                    ) ||
+                      MARKET_HOURLY[String(selectedVehicle)] ||
+                      189) * rentalHours
+                  : fareBreakdown?.total || 0
+              )}
             </Text>
           )}
         </View>
@@ -933,10 +1063,15 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.medium,
   },
   vehicleCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: BorderRadius.lg,
-    padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 2, borderColor: '#F0F0F0',
+    backgroundColor: '#FFF',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 2,
+    borderColor: '#F0F0F0',
   },
   vehicleCardSelected: { borderColor: Colors.primary, backgroundColor: '#FAFBFF' },
+  vehicleCardHeader: { flexDirection: 'row', alignItems: 'center' },
   vehicleInfo: { flex: 1, marginLeft: Spacing.md },
   vehicleName: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#000' },
   vehicleMeta: { fontSize: FontSizes.xs, color: '#666', marginTop: 2 },
@@ -944,6 +1079,51 @@ const styles = StyleSheet.create({
   vehiclePriceText: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: '#333' },
   vehiclePriceActive: { color: Colors.primary },
   vehiclePriceDash: { fontSize: FontSizes.lg, color: '#CCC' },
+  rentalHint: {
+    fontSize: FontSizes.xs,
+    color: '#64748B',
+    marginBottom: Spacing.sm,
+    marginTop: 2,
+    paddingHorizontal: 2,
+  },
+  rentalPackages: { marginTop: Spacing.sm, gap: 6 },
+  rentalPkgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  rentalPkgRowActive: {
+    backgroundColor: '#F3E8FF',
+    borderColor: Colors.primary,
+  },
+  rentalPkgLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  rentalRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rentalRadioActive: { borderColor: Colors.primary },
+  rentalRadioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+  },
+  rentalPkgTitle: { fontSize: FontSizes.sm, fontWeight: FontWeights.semibold, color: '#0F172A' },
+  rentalPkgTitleActive: { color: Colors.primary },
+  rentalPkgSub: { fontSize: 11, color: '#64748B', marginTop: 1 },
+  rentalPkgPrice: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#334155' },
+  rentalPkgPriceActive: { color: Colors.primary },
 
   // Bottom bar
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFF', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: '#E0E0E0' },

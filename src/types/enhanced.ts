@@ -143,4 +143,5 @@ export interface BookingCreateRequest {
   preferences?: RidePreferences;
   driver_notes?: string;
   payment_method?: string;
+  rental_hours?: number;
 }
