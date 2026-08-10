@@ -48,9 +48,48 @@ interface RouteData {
   duration: number;
 }
 
+function toFiniteLoc(loc: Location | null | undefined): Location | null {
+  if (!loc) return null;
+  const latitude = Number(loc.latitude);
+  const longitude = Number(loc.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return {
+    latitude,
+    longitude,
+    heading: loc.heading,
+  };
+}
+
+function haversineMeters(a: Location, b: Location): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function straightRoute(from: Location, to: Location): RouteData {
+  const distance = haversineMeters(from, to);
+  // ~25 km/h city crawl for a rough ETA while Mapbox loads
+  const duration = Math.max(60, (distance / 1000 / 25) * 3600);
+  return {
+    coordinates: [
+      [from.longitude, from.latitude],
+      [to.longitude, to.latitude],
+    ],
+    distance,
+    duration,
+  };
+}
+
 /**
  * Uber / Red Taxi–style live map:
- * - pending:  pickup focus while searching
+ * - pending:  pickup → drop overview while searching
  * - accepted: live driver + path driver → pickup
  * - started:  live driver + path driver → destination
  */
@@ -67,26 +106,37 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const lastFetchRef = useRef<number>(0);
   const phaseRef = useRef<string>('');
-  const fetchingRef = useRef(false);
+  const fetchGenRef = useRef(0);
+  /** True after a successful Mapbox (or fallback) fetch for the current phase. */
+  const routeReadyRef = useRef(false);
   /** Frame camera once per phase (not on every GPS / sim tick). */
   const framedPhaseRef = useRef<string>('');
   /** Stable route origin for the current leg (don't rebuild from moving pin). */
   const legOriginRef = useRef<Location | null>(null);
 
-  // Phase target (Uber model)
-  const routeTarget: Location | null = useMemo(() => {
-    if (rideStatus === 'accepted') return pickupLocation;
-    if (rideStatus === 'started' && dropoffLocation) return dropoffLocation;
-    // pending: trip overview if dropoff exists
-    if (rideStatus === 'pending' && dropoffLocation) return dropoffLocation;
-    return null;
-  }, [
-    rideStatus,
+  const pickup = useMemo(() => toFiniteLoc(pickupLocation), [
     pickupLocation.latitude,
     pickupLocation.longitude,
+    pickupLocation.heading,
+  ]);
+  const dropoff = useMemo(() => toFiniteLoc(dropoffLocation), [
     dropoffLocation?.latitude,
     dropoffLocation?.longitude,
   ]);
+  const driver = useMemo(() => toFiniteLoc(driverLocation), [
+    driverLocation?.latitude,
+    driverLocation?.longitude,
+    driverLocation?.heading,
+  ]);
+
+  // Phase target (Uber model)
+  const routeTarget: Location | null = useMemo(() => {
+    if (rideStatus === 'accepted') return pickup;
+    if (rideStatus === 'started' && dropoff) return dropoff;
+    // pending: trip overview if dropoff exists
+    if (rideStatus === 'pending' && dropoff) return dropoff;
+    return null;
+  }, [rideStatus, pickup, dropoff]);
 
   const phaseLabel =
     rideStatus === 'pending'
@@ -95,109 +145,135 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
         ? 'Captain arriving'
         : 'Heading to destination';
 
-  const fetchRoute = async (from: Location, to: Location) => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
-    try {
-      const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      if (!response.ok || data.message || !data.routes?.[0]) return;
-
-      const route = data.routes[0];
-      setRouteData({
-        coordinates: route.geometry.coordinates as LngLat[],
-        distance: route.distance,
-        duration: route.duration,
-      });
+  const fetchRoute = async (from: Location, to: Location, gen: number) => {
+    const apply = (next: RouteData, fromNetwork: boolean) => {
+      if (gen !== fetchGenRef.current) return;
+      setRouteData(next);
       lastFetchRef.current = Date.now();
-      onEtaUpdate?.(route.distance / 1000, route.duration / 60);
-    } catch (error) {
-      console.error('Route fetch error:', error);
-    } finally {
-      fetchingRef.current = false;
+      if (fromNetwork || next.coordinates.length >= 2) {
+        routeReadyRef.current = true;
+      }
+      onEtaUpdate?.(next.distance / 1000, next.duration / 60);
+    };
+
+    if (!MAPBOX_ACCESS_TOKEN) {
+      apply(straightRoute(from, to), false);
+      return;
     }
+
+    const profiles = ['driving-traffic', 'driving'] as const;
+    for (const profile of profiles) {
+      try {
+        const url =
+          `https://api.mapbox.com/directions/v5/mapbox/${profile}/` +
+          `${from.longitude},${from.latitude};${to.longitude},${to.latitude}` +
+          `?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (!response.ok || data.message || !data.routes?.[0]) continue;
+        const route = data.routes[0];
+        const coords = route.geometry?.coordinates as LngLat[] | undefined;
+        if (!coords || coords.length < 2) continue;
+        apply(
+          {
+            coordinates: coords,
+            distance: route.distance,
+            duration: route.duration,
+          },
+          true
+        );
+        return;
+      } catch (error) {
+        console.error(`Route fetch error (${profile}):`, error);
+      }
+    }
+
+    // Always keep a visible path while searching / on failure
+    apply(straightRoute(from, to), false);
   };
 
   // Hard reset when phase / destination changes — freeze new leg origin once
   useEffect(() => {
     const phase = `${rideStatus}:${routeTarget?.latitude},${routeTarget?.longitude}`;
-    if (phaseRef.current !== phase) {
+    if (phaseRef.current === phase) return;
+
+    fetchGenRef.current += 1;
+    lastFetchRef.current = 0;
+    framedPhaseRef.current = '';
+    legOriginRef.current = null;
+    routeReadyRef.current = false;
+    phaseRef.current = phase;
+
+    // Searching: draw pickup→drop immediately so the path never flashes empty
+    if (rideStatus === 'pending' && pickup && routeTarget) {
+      const preview = straightRoute(pickup, routeTarget);
+      setRouteData(preview);
+      onEtaUpdate?.(preview.distance / 1000, preview.duration / 60);
+      legOriginRef.current = pickup;
+    } else {
       setRouteData(null);
-      lastFetchRef.current = 0;
-      framedPhaseRef.current = '';
-      legOriginRef.current = null;
-      phaseRef.current = phase;
     }
-  }, [rideStatus, routeTarget?.latitude, routeTarget?.longitude]);
+  }, [rideStatus, routeTarget?.latitude, routeTarget?.longitude, pickup?.latitude, pickup?.longitude]);
 
   // Capture stable origin for accepted/started once (route polyline stays fixed while pin moves)
   useEffect(() => {
     if (rideStatus === 'pending') {
-      legOriginRef.current = pickupLocation;
+      if (pickup) legOriginRef.current = pickup;
       return;
     }
     if (legOriginRef.current) return;
-    if (rideStatus === 'started') {
-      // Trip leg is always pickup → drop
-      legOriginRef.current = {
-        latitude: pickupLocation.latitude,
-        longitude: pickupLocation.longitude,
-      };
+    if (rideStatus === 'started' && pickup) {
+      legOriginRef.current = pickup;
       return;
     }
-    if (rideStatus === 'accepted' && driverLocation) {
-      legOriginRef.current = {
-        latitude: driverLocation.latitude,
-        longitude: driverLocation.longitude,
-      };
+    if (rideStatus === 'accepted' && driver) {
+      legOriginRef.current = driver;
     }
-  }, [rideStatus, driverLocation?.latitude, driverLocation?.longitude, pickupLocation.latitude, pickupLocation.longitude]);
+  }, [rideStatus, driver?.latitude, driver?.longitude, pickup?.latitude, pickup?.longitude]);
 
-  // Fetch route once per leg (not every driver tick)
+  // Fetch road geometry once per leg (upgrade straight preview → real roads)
   useEffect(() => {
     if (!routeTarget) return;
+    if (routeReadyRef.current) return;
+    const gen = fetchGenRef.current;
 
     if (rideStatus === 'pending') {
-      if (!routeData) fetchRoute(pickupLocation, routeTarget);
+      if (!pickup) return;
+      fetchRoute(pickup, routeTarget, gen);
       return;
     }
 
-    if (!driverLocation || !legOriginRef.current) return;
-    if (routeData) return;
-
-    fetchRoute(legOriginRef.current, routeTarget);
+    if (!driver || !legOriginRef.current) return;
+    fetchRoute(legOriginRef.current, routeTarget, gen);
   }, [
     rideStatus,
     routeTarget?.latitude,
     routeTarget?.longitude,
-    driverLocation?.latitude,
-    driverLocation?.longitude,
-    routeData,
+    driver?.latitude,
+    driver?.longitude,
+    pickup?.latitude,
+    pickup?.longitude,
   ]);
 
   const progress = useMemo(() => {
-    if (!routeData || !driverLocation) return null;
-    if (rideStatus === 'pending') return null;
-    return splitRouteProgress(routeData.coordinates, driverLocation);
+    if (!routeData || rideStatus === 'pending') return null;
+    if (!driver) return null;
+    return splitRouteProgress(routeData.coordinates, driver);
   }, [
     routeData,
-    driverLocation?.latitude,
-    driverLocation?.longitude,
+    driver?.latitude,
+    driver?.longitude,
     rideStatus,
   ]);
 
   // Off-route rebuild — throttled; skip tiny jitter during smooth sim
   useEffect(() => {
     if (rideStatus === 'pending') return;
-    if (!progress?.offRoute || !driverLocation || !routeTarget) return;
+    if (!progress?.offRoute || !driver || !routeTarget) return;
     if (Date.now() - lastFetchRef.current < 15000) return;
     lastFetchRef.current = Date.now();
-    legOriginRef.current = {
-      latitude: driverLocation.latitude,
-      longitude: driverLocation.longitude,
-    };
-    fetchRoute(driverLocation, routeTarget);
+    legOriginRef.current = driver;
+    fetchRoute(driver, routeTarget, fetchGenRef.current);
   }, [progress?.offRoute, rideStatus]);
 
   useEffect(() => {
@@ -211,34 +287,31 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
 
   // Fit camera once per phase when route (or pending endpoints) are ready — never on each move
   useEffect(() => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || !pickup) return;
 
-    const frameKey = `${rideStatus}:${routeData ? 'r' : 'n'}`;
+    const frameKey = `${rideStatus}:${routeData ? (routeData.coordinates.length > 2 ? 'road' : 'line') : 'n'}`;
     if (framedPhaseRef.current === frameKey) return;
 
-    // Wait for route on live legs so we frame the full path once
-    if ((rideStatus === 'accepted' || rideStatus === 'started') && !routeData) return;
+    // Wait for a path before framing so pickup↔drop is visible together
+    if (!routeData && (rideStatus === 'accepted' || rideStatus === 'started')) return;
+    if (rideStatus === 'pending' && dropoff && !routeData) return;
 
     const points: number[][] = [];
 
     if (rideStatus === 'pending') {
-      points.push([pickupLocation.longitude, pickupLocation.latitude]);
-      if (dropoffLocation) {
-        points.push([dropoffLocation.longitude, dropoffLocation.latitude]);
-      }
+      points.push([pickup.longitude, pickup.latitude]);
+      if (dropoff) points.push([dropoff.longitude, dropoff.latitude]);
       nearbyPins?.forEach((p) => points.push([p.longitude, p.latitude]));
     } else if (rideStatus === 'accepted') {
       if (legOriginRef.current) {
         points.push([legOriginRef.current.longitude, legOriginRef.current.latitude]);
-      } else if (driverLocation) {
-        points.push([driverLocation.longitude, driverLocation.latitude]);
+      } else if (driver) {
+        points.push([driver.longitude, driver.latitude]);
       }
-      points.push([pickupLocation.longitude, pickupLocation.latitude]);
+      points.push([pickup.longitude, pickup.latitude]);
     } else {
-      points.push([pickupLocation.longitude, pickupLocation.latitude]);
-      if (dropoffLocation) {
-        points.push([dropoffLocation.longitude, dropoffLocation.latitude]);
-      }
+      points.push([pickup.longitude, pickup.latitude]);
+      if (dropoff) points.push([dropoff.longitude, dropoff.latitude]);
     }
 
     if (routeData?.coordinates?.length) {
@@ -262,19 +335,24 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
   }, [
     rideStatus,
     routeData,
-    pickupLocation.latitude,
-    pickupLocation.longitude,
-    dropoffLocation?.latitude,
-    dropoffLocation?.longitude,
+    pickup?.latitude,
+    pickup?.longitude,
+    dropoff?.latitude,
+    dropoff?.longitude,
     nearbyPins?.length,
   ]);
+
+  const tripPath =
+    routeData?.coordinates && routeData.coordinates.length >= 2
+      ? routeData.coordinates
+      : null;
 
   const travelled =
     progress && progress.travelled.length >= 2 ? progress.travelled : null;
   const remaining =
     progress && progress.remaining.length >= 2
       ? progress.remaining
-      : routeData?.coordinates || null;
+      : tripPath;
 
   const etaDistanceM = progress
     ? remainingDistanceMeters(progress.remaining)
@@ -283,10 +361,10 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
     ? estimateRemainingMinutes(routeData.duration / 60, progress.fraction) * 60
     : routeData?.duration || 0;
 
-  const showPickup = rideStatus !== 'started';
-  const showDropoff = !!dropoffLocation && rideStatus !== 'accepted';
+  const showPickup = rideStatus !== 'started' && !!pickup;
+  const showDropoff = !!dropoff && rideStatus !== 'accepted';
   // During accepted, still hint destination lightly
-  const showDropoffHint = !!dropoffLocation && rideStatus === 'accepted';
+  const showDropoffHint = !!dropoff && rideStatus === 'accepted';
 
   return (
     <View style={styles.container}>
@@ -309,19 +387,19 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           />
         )}
 
-        {/* Pending: trip overview line (pickup → drop) */}
-        {rideStatus === 'pending' && remaining && remaining.length >= 2 && (
+        {/* Pending: always draw pickup → drop path (road or straight fallback) */}
+        {rideStatus === 'pending' && tripPath && (
           <RouteProgressLayers
             travelled={null}
-            remaining={remaining}
+            remaining={tripPath}
             idPrefix="ride-pending"
           />
         )}
 
-        {showPickup && (
+        {showPickup && pickup && (
           <Mapbox.PointAnnotation
             id="pickup"
-            coordinate={[pickupLocation.longitude, pickupLocation.latitude]}
+            coordinate={[pickup.longitude, pickup.latitude]}
             title="Pickup"
           >
             <View style={[styles.marker, styles.pickupMarker]}>
@@ -330,10 +408,10 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           </Mapbox.PointAnnotation>
         )}
 
-        {showDropoff && dropoffLocation && (
+        {showDropoff && dropoff && (
           <Mapbox.PointAnnotation
             id="dropoff"
-            coordinate={[dropoffLocation.longitude, dropoffLocation.latitude]}
+            coordinate={[dropoff.longitude, dropoff.latitude]}
             title="Dropoff"
           >
             <View style={[styles.marker, styles.dropoffMarker]}>
@@ -342,10 +420,10 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           </Mapbox.PointAnnotation>
         )}
 
-        {showDropoffHint && dropoffLocation && (
+        {showDropoffHint && dropoff && (
           <Mapbox.PointAnnotation
             id="dropoff-hint"
-            coordinate={[dropoffLocation.longitude, dropoffLocation.latitude]}
+            coordinate={[dropoff.longitude, dropoff.latitude]}
             title="Destination"
           >
             <View style={[styles.marker, styles.dropoffHint]}>
@@ -355,18 +433,18 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
         )}
 
         {/* Stable key — coordinate-based keys remount MarkerView every tick and blink */}
-        {driverLocation && (rideStatus === 'accepted' || rideStatus === 'started') && (
+        {driver && (rideStatus === 'accepted' || rideStatus === 'started') && (
           <Mapbox.MarkerView
             key="driver-marker"
             id="driver"
-            coordinate={[driverLocation.longitude, driverLocation.latitude]}
+            coordinate={[driver.longitude, driver.latitude]}
             allowOverlap
             anchor={{ x: 0.5, y: 0.5 }}
           >
             <VehicleMarker
               category={vehicleCategory || 'mini'}
               size={38}
-              heading={driverLocation.heading}
+              heading={driver.heading}
             />
           </Mapbox.MarkerView>
         )}
@@ -389,7 +467,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
         <Text style={styles.phaseText}>{phaseLabel}</Text>
       </View>
 
-      {routeData && (rideStatus === 'accepted' || rideStatus === 'started') && (
+      {routeData && (
         <View style={styles.etaOverlay}>
           <Ionicons name="time-outline" size={14} color="#1A73E8" />
           <Text style={styles.etaTime}>{Math.max(1, Math.ceil(etaDurationS / 60))} min</Text>
@@ -397,7 +475,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           <Ionicons name="navigate-outline" size={14} color="#666" />
           <Text style={styles.etaDist}>{(etaDistanceM / 1000).toFixed(1)} km</Text>
           <Text style={styles.etaHint}>
-            {rideStatus === 'accepted' ? 'to pickup' : 'to dropoff'}
+            {rideStatus === 'accepted' ? 'to pickup' : rideStatus === 'pending' ? 'trip' : 'to dropoff'}
           </Text>
         </View>
       )}
