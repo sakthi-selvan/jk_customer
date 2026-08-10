@@ -31,7 +31,6 @@ const TRIP_TYPES = [
   { type: TripType.ROUND_TRIP, label: 'Round Trip', icon: 'swap-horizontal' },
   { type: TripType.RENTAL, label: 'Rental', icon: 'time' },
   { type: TripType.OUTSTATION, label: 'Outstation', icon: 'car-sport' },
-  { type: TripType.AIRPORT_PICKUP, label: 'Airport', icon: 'airplane' },
 ];
 
 const VEHICLE_FALLBACK = [

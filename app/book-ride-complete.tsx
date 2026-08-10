@@ -32,8 +32,6 @@ const TRIP_TYPES = [
   { id: TripType.ROUND_TRIP, name: 'Round Trip', icon: 'swap-horizontal', color: '#2196F3' },
   { id: TripType.RENTAL, name: 'Rental', icon: 'time', color: '#FF9800' },
   { id: TripType.OUTSTATION, name: 'Outstation', icon: 'car-sport', color: '#9C27B0' },
-  { id: TripType.AIRPORT_PICKUP, name: 'Airport Pickup', icon: 'airplane', color: '#F44336' },
-  { id: TripType.AIRPORT_DROP, name: 'Airport Drop', icon: 'airplane', color: '#E91E63' },
 ];
 
 const VEHICLE_OPTIONS = [
