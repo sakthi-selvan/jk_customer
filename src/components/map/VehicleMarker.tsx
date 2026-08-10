@@ -23,11 +23,11 @@ export const FLEET_FILTERS: Array<{
   color: string;
 }> = [
   { id: 'all', label: 'All', icon: 'apps', color: '#64748B' },
-  { id: 'bike', label: 'Bike', icon: 'bicycle', color: '#F97316' },
-  { id: 'auto', label: 'Auto', icon: 'bus', color: '#EAB308' },
   { id: 'mini', label: 'Mini', icon: 'car-outline', color: '#22C55E' },
   { id: 'sedan', label: 'Sedan', icon: 'car-sport-outline', color: '#3B82F6' },
   { id: 'suv', label: 'SUV', icon: 'car', color: '#F59E0B' },
+  { id: 'auto', label: 'Auto', icon: 'bus', color: '#EAB308' },
+  { id: 'bike', label: 'Bike', icon: 'bicycle', color: '#F97316' },
 ];
 
 const STYLE: Record<string, { label: string; color: string }> = {

@@ -51,12 +51,14 @@ const MARKET_HOURLY: Record<string, number> = {
 };
 
 const VEHICLE_FALLBACK = [
-  { type: VehicleCategory.BIKE, name: 'Bike', icon: 'bicycle', capacity: '1 seat', examples: 'Activa, Pulsar', color: '#F97316', hourly_rate: 129 },
-  { type: VehicleCategory.AUTO, name: 'Auto', icon: 'bus', capacity: '3 seats', examples: 'Auto rickshaw', color: '#EAB308', hourly_rate: 149 },
   { type: VehicleCategory.MINI, name: 'Mini', icon: 'car-outline', capacity: '4 seats', examples: 'WagonR, Alto', color: '#4CAF50', hourly_rate: 189 },
   { type: VehicleCategory.SEDAN, name: 'Sedan', icon: 'car-sport-outline', capacity: '4 seats', examples: 'Dzire, Etios', color: '#2196F3', hourly_rate: 249 },
   { type: VehicleCategory.SUV, name: 'SUV', icon: 'car', capacity: '6-7 seats', examples: 'Ertiga, Innova', color: '#FF9800', hourly_rate: 399 },
+  { type: VehicleCategory.AUTO, name: 'Auto', icon: 'bus', capacity: '3 seats', examples: 'Auto rickshaw', color: '#EAB308', hourly_rate: 149 },
+  { type: VehicleCategory.BIKE, name: 'Bike', icon: 'bicycle', capacity: '1 seat', examples: 'Activa, Pulsar', color: '#F97316', hourly_rate: 129 },
 ];
+
+const VEHICLE_DISPLAY_ORDER = ['mini', 'sedan', 'suv', 'auto', 'bike'] as const;
 
 const VEHICLE_META: Record<string, { icon: string; color: string }> = {
   bike: { icon: 'bicycle', color: '#F97316' },
@@ -152,7 +154,12 @@ export default function BookRideScreen() {
           per_km_rate: c.per_km_rate,
           hourly_rate: c.hourly_rate,
         };
-      });
+      })
+        .sort((a, b) => {
+          const ai = VEHICLE_DISPLAY_ORDER.indexOf(String(a.type) as (typeof VEHICLE_DISPLAY_ORDER)[number]);
+          const bi = VEHICLE_DISPLAY_ORDER.indexOf(String(b.type) as (typeof VEHICLE_DISPLAY_ORDER)[number]);
+          return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+        });
       setVehicleOptions(mapped);
       if (!mapped.find((v) => v.type === selectedVehicle) && mapped[0]) {
         setSelectedVehicle(mapped[0].type as VehicleCategory);
