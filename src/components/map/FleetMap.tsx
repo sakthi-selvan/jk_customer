@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Mapbox, { Camera, MapView, UserLocation, MarkerView } from '@rnmapbox/maps';
 import { Ionicons } from '@expo/vector-icons';
-import { MAPBOX_ACCESS_TOKEN, MAP_STYLES } from '../../config/mapbox-config';
+import { MAP_STYLES } from '../../config/mapbox-config';
+import { initMapbox, MAP_SURFACE_VIEW, mapboxTokenPresent } from '../../config/initMapbox';
 import { bookingEnhancedApi } from '../../api/booking-enhanced';
 import {
   FLEET_FILTERS,
@@ -12,11 +13,7 @@ import {
 } from './VehicleMarker';
 import { FontSizes, FontWeights, Spacing } from '../../constants/theme';
 
-try {
-  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
-} catch {
-  // token set elsewhere
-}
+initMapbox();
 
 export interface NearbyDriverPin {
   id: string;
@@ -56,6 +53,9 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   const cameraRef = useRef<Camera>(null);
   const [localFilter, setLocalFilter] = useState<FleetCategory>('all');
   const [drivers, setDrivers] = useState<NearbyDriverPin[]>([]);
+  const [mapError, setMapError] = useState<string | null>(
+    mapboxTokenPresent() ? null : 'Map token missing in this build'
+  );
   const filter = controlledFilter ?? localFilter;
 
   const setFilter = (next: FleetCategory) => {
@@ -105,6 +105,10 @@ export const FleetMap: React.FC<FleetMapProps> = ({
         scaleBarEnabled={false}
         attributionEnabled
         logoEnabled={false}
+        surfaceView={MAP_SURFACE_VIEW}
+        onDidFailLoadingMap={() =>
+          setMapError('Map failed to load. Check network or reinstall the latest preview.')
+        }
       >
         <Camera
           ref={cameraRef}
@@ -127,6 +131,13 @@ export const FleetMap: React.FC<FleetMapProps> = ({
           </MarkerView>
         ))}
       </MapView>
+
+      {mapError ? (
+        <View style={styles.mapError} pointerEvents="none">
+          <Ionicons name="map-outline" size={28} color="#64748B" />
+          <Text style={styles.mapErrorText}>{mapError}</Text>
+        </View>
+      ) : null}
 
       {showFilterChips && (
         <View style={[styles.chipBar, { top: chipBarTop }]}>
@@ -158,6 +169,20 @@ export const FleetMap: React.FC<FleetMapProps> = ({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  mapError: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  mapErrorText: {
+    textAlign: 'center',
+    color: '#475569',
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+  },
   chipBar: {
     position: 'absolute',
     left: 0,

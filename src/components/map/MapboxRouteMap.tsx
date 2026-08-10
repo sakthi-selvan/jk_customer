@@ -76,7 +76,7 @@ export const MapboxRouteMap: React.FC<MapboxRouteMapProps> = ({
 
   return (
     <View style={styles.container}>
-      <Mapbox.MapView style={styles.map} styleURL={MAP_STYLES.STREETS}>
+      <Mapbox.MapView style={styles.map} styleURL={MAP_STYLES.STREETS} surfaceView={false}>
         <Mapbox.Camera ref={cameraRef} />
 
         {/* Route line */}

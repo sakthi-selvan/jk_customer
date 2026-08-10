@@ -70,6 +70,7 @@ export const MapboxTaxiMap: React.FC<MapboxTaxiMapProps> = ({
       ref={mapRef}
       style={styles.map}
       styleURL={styleURL}
+      surfaceView={false}
       onPress={handleMapPress}
       compassEnabled
       scaleBarEnabled={false}

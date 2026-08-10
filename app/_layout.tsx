@@ -8,10 +8,14 @@ import 'react-native-reanimated';
 import { useAuthStore } from '../src/store/authStore';
 import { Colors } from '../src/constants/theme';
 import { OfflineBanner } from '../src/components/common/OfflineBanner';
+import { initMapbox } from '../src/config/initMapbox';
 
 export const unstable_settings = {
   initialRouteName: '(auth)/login',
 };
+
+// Mapbox token must be set before any MapView mounts (avoids blank black maps).
+initMapbox();
 
 // Keep native splash up until auth is ready. Fail soft so Expo preview never crashes.
 try {

@@ -6,12 +6,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import Mapbox from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN } from '../src/config/mapbox-config';
+import { initMapbox, MAP_SURFACE_VIEW } from '../src/config/initMapbox';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { useRideStore } from '../src/store/rideStore';
 
-if (MAPBOX_ACCESS_TOKEN) {
-  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
-}
+initMapbox();
 
 interface SearchResult {
   name: string;
@@ -310,6 +309,7 @@ export default function PickOnMapScreen() {
         <Mapbox.MapView
           style={styles.map}
           styleURL="mapbox://styles/mapbox/streets-v12"
+          surfaceView={MAP_SURFACE_VIEW}
           onRegionDidChange={handleRegionChange}
           onDidFinishLoadingMap={() => setMapReady(true)}
         >

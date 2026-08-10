@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import { Ionicons } from '@expo/vector-icons';
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLES, ANIMATION_DURATION } from '../../config/mapbox-config';
+import { initMapbox, MAP_SURFACE_VIEW, mapboxTokenPresent } from '../../config/initMapbox';
 import { FontSizes, FontWeights, BorderRadius, Spacing } from '../../constants/theme';
 import { RouteProgressLayers } from './RouteProgressLayers';
 import { VehicleMarker } from './VehicleMarker';
@@ -13,11 +14,7 @@ import {
   type LngLat,
 } from '../../utils/routeProgress';
 
-try {
-  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
-} catch (error) {
-  console.error('Failed to set Mapbox token in RideTrackingMap:', error);
-}
+initMapbox();
 
 interface Location {
   latitude: number;
@@ -104,6 +101,9 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
 }) => {
   const cameraRef = useRef<Mapbox.Camera>(null);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
+  const [mapError, setMapError] = useState<string | null>(
+    mapboxTokenPresent() ? null : 'Map token missing in this build'
+  );
   const lastFetchRef = useRef<number>(0);
   const phaseRef = useRef<string>('');
   const fetchGenRef = useRef(0);
@@ -374,6 +374,10 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
         compassEnabled
         attributionEnabled={true}
         logoEnabled={true}
+        surfaceView={MAP_SURFACE_VIEW}
+        onDidFailLoadingMap={() =>
+          setMapError('Map failed to load. Check network or reinstall the latest preview.')
+        }
       >
         <Mapbox.Camera ref={cameraRef} animationDuration={ANIMATION_DURATION} />
         <Mapbox.UserLocation visible showsUserHeadingIndicator />
@@ -463,6 +467,13 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
           ))}
       </Mapbox.MapView>
 
+      {mapError ? (
+        <View style={styles.mapError} pointerEvents="none">
+          <Ionicons name="map-outline" size={28} color="#64748B" />
+          <Text style={styles.mapErrorText}>{mapError}</Text>
+        </View>
+      ) : null}
+
       <View style={styles.phaseBanner}>
         <Text style={styles.phaseText}>{phaseLabel}</Text>
       </View>
@@ -486,6 +497,20 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  mapError: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  mapErrorText: {
+    textAlign: 'center',
+    color: '#475569',
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+  },
   marker: {
     width: 30, height: 30, borderRadius: 15,
     alignItems: 'center', justifyContent: 'center',

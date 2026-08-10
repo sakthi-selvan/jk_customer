@@ -76,6 +76,7 @@ export const MapboxMap: React.FC<MapboxMapProps> = ({
         styleURL={MAPBOX_STYLE_URL}
         compassEnabled={false}
         scaleBarEnabled={false}
+        surfaceView={false}
         onDidFailLoadingMap={handleMapError}
       >
         <Camera

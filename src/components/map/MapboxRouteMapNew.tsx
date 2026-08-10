@@ -146,6 +146,7 @@ export const MapboxRouteMapNew: React.FC<MapboxRouteMapNewProps> = ({
       <Mapbox.MapView
         style={styles.map}
         styleURL="mapbox://styles/mapbox/navigation-day-v1"
+        surfaceView={false}
         compassEnabled
         attributionEnabled={true}
         logoEnabled={true}
