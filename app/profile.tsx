@@ -159,6 +159,17 @@ export default function ProfileScreen() {
             <View style={styles.menuDivider} />
 
             <MenuItem
+              icon="play-circle-outline"
+              title="Ride Preview"
+              subtitle="Searching → accept → trip → drop (demo)"
+              onPress={() => router.push('/ride-ui-preview')}
+              iconColor={Colors.primary}
+              iconBg="#F3E8FF"
+            />
+
+            <View style={styles.menuDivider} />
+
+            <MenuItem
               icon="shield-checkmark-outline"
               title="Emergency Contact"
               subtitle={user?.emergency_contact_name ?
@@ -214,17 +225,6 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Support</Text>
 
           <View style={styles.menuSection}>
-            <MenuItem
-              icon="play-circle-outline"
-              title="Ride UI Preview"
-              subtitle="Searching → accept → trip → drop (mock)"
-              onPress={() => router.push('/ride-ui-preview')}
-              iconColor={Colors.primary}
-              iconBg="#F3E8FF"
-            />
-
-            <View style={styles.menuDivider} />
-
             <MenuItem
               icon="help-circle-outline"
               title="Help Center"
