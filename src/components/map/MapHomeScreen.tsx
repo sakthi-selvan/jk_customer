@@ -26,7 +26,7 @@ import { RideBottomSheet } from '../ride/RideBottomSheet';
 import { useAuthStore } from '../../store/authStore';
 import { useRideStore } from '../../store/rideStore';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../constants/theme';
-import { MAPBOX_ACCESS_TOKEN } from '../../config/mapbox-config';
+import { searchPlaces } from '../../services/placesSearch';
 import { bookingEnhancedApi, userEnhancedApi } from '../../api/booking-enhanced';
 import { EnhancedRide, SavedPlaces } from '../../types/enhanced';
 
@@ -243,50 +243,19 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const searchForLocation = async (query: string) => {
     setIsSearchingLocation(true);
     try {
-      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=5&country=IN&types=place,locality,neighborhood,address,poi`;
-      url += `&proximity=${location.longitude},${location.latitude}`;
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      // Check for API errors
-      if (data.message) {
-        console.error('Mapbox API Error:', data.message);
-        Alert.alert(
-          'Search Error',
-          `Mapbox API Error: ${data.message}\n\nToken: ${MAPBOX_ACCESS_TOKEN ? 'Set' : 'Missing'}\nToken preview: ${MAPBOX_ACCESS_TOKEN.substring(0, 20)}...\n\nResponse: ${JSON.stringify(data)}`,
-          [{ text: 'OK' }]
-        );
-        setSearchResults([]);
-        return;
-      }
-
-      if (!response.ok) {
-        Alert.alert(
-          'Search Error',
-          `Failed to search location.\n\nHTTP Status: ${response.status}\nURL: ${url.substring(0, 100)}...`,
-          [{ text: 'OK' }]
-        );
-        setSearchResults([]);
-        return;
-      }
-
-      if (data.features && data.features.length > 0) {
-        const mapped = data.features.map((feature: any) => ({
-          name: feature.text,
-          address: feature.place_name,
-          latitude: feature.center[1],
-          longitude: feature.center[0],
-        }));
-        setSearchResults(mapped);
-      } else {
-        setSearchResults([]);
+      const { results, error } = await searchPlaces(query, {
+        proximity: { latitude: location.latitude, longitude: location.longitude },
+        limit: 5,
+      });
+      setSearchResults(results);
+      if (!results.length && error) {
+        Alert.alert('Search Error', error, [{ text: 'OK' }]);
       }
     } catch (error) {
       console.error('Location search error:', error);
       Alert.alert(
         'Search Error',
-        `Failed to search location.\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nToken preview: ${MAPBOX_ACCESS_TOKEN.substring(0, 20)}...`,
+        `Failed to search location.\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`,
         [{ text: 'OK' }]
       );
       setSearchResults([]);

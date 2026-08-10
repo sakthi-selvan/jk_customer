@@ -7,6 +7,8 @@ import * as Location from 'expo-location';
 import Mapbox from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN } from '../src/config/mapbox-config';
 import { initMapbox, MAP_SURFACE_VIEW } from '../src/config/initMapbox';
+import { searchPlaces } from '../src/services/placesSearch';
+import { geoApi } from '../src/api/geo';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { useRideStore } from '../src/store/rideStore';
 
@@ -137,7 +139,14 @@ export default function PickOnMapScreen() {
     try {
       let resolved: string | null = null;
 
-      if (MAPBOX_ACCESS_TOKEN) {
+      try {
+        const place = await geoApi.reverse(lat, lng);
+        if (place?.address) resolved = place.address;
+      } catch {
+        // fall through
+      }
+
+      if (!resolved && MAPBOX_ACCESS_TOKEN) {
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
         const response = await fetch(url);
         const data = await response.json();
@@ -163,28 +172,16 @@ export default function PickOnMapScreen() {
   };
 
   const searchLocation = async (query: string) => {
-    if (!MAPBOX_ACCESS_TOKEN) {
-      setSearchResults([]);
-      return;
-    }
     setIsSearching(true);
     try {
-      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=5&country=IN&types=place,locality,neighborhood,address,poi`;
-      url += `&proximity=${centerRef.current.longitude},${centerRef.current.latitude}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.features?.length) {
-        setSearchResults(
-          data.features.map((feature: any) => ({
-            name: feature.text,
-            address: feature.place_name,
-            latitude: feature.center[1],
-            longitude: feature.center[0],
-          }))
-        );
-      } else {
-        setSearchResults([]);
-      }
+      const { results } = await searchPlaces(query, {
+        proximity: {
+          latitude: centerRef.current.latitude,
+          longitude: centerRef.current.longitude,
+        },
+        limit: 5,
+      });
+      setSearchResults(results);
     } catch {
       setSearchResults([]);
     } finally {
@@ -222,12 +219,21 @@ export default function PickOnMapScreen() {
 
     let resolved = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
     try {
-      if (MAPBOX_ACCESS_TOKEN) {
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.features?.[0]?.place_name) resolved = data.features[0].place_name;
-      } else {
+      try {
+        const place = await geoApi.reverse(latitude, longitude);
+        if (place?.address) resolved = place.address;
+      } catch {
+        if (MAPBOX_ACCESS_TOKEN) {
+          const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
+          const response = await fetch(url);
+          const data = await response.json();
+          if (data.features?.[0]?.place_name) resolved = data.features[0].place_name;
+        } else {
+          const fb = await reverseGeocodeFallback(latitude, longitude);
+          if (fb) resolved = fb;
+        }
+      }
+      if (resolved === `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`) {
         const fb = await reverseGeocodeFallback(latitude, longitude);
         if (fb) resolved = fb;
       }

@@ -13,7 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../constants/theme';
-import { MAPBOX_ACCESS_TOKEN } from '../../config/mapbox-config';
+import { searchPlaces, type PlaceResult } from '../../services/placesSearch';
+import { geoApi } from '../../api/geo';
 
 interface LocationSearchInputProps {
   placeholder: string;
@@ -24,12 +25,7 @@ interface LocationSearchInputProps {
   showCurrentLocation?: boolean;
 }
 
-export interface LocationResult {
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-}
+export type LocationResult = PlaceResult;
 
 export interface LocationSearchInputRef {
   focus: () => void;
@@ -50,6 +46,7 @@ export const LocationSearchInput = forwardRef<LocationSearchInputRef, LocationSe
   const [isSearching, setIsSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [locationSelected, setLocationSelected] = useState(!!initialValue);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -110,34 +107,23 @@ export const LocationSearchInput = forwardRef<LocationSearchInputRef, LocationSe
 
   const searchLocation = async (searchQuery: string) => {
     setIsSearching(true);
+    setSearchError(null);
     try {
       const proximity = await getUserProximity();
-      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=5&country=IN&types=place,locality,neighborhood,address,poi`;
-
-      if (proximity) {
-        url += `&proximity=${proximity.longitude},${proximity.latitude}`;
-      }
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.features && data.features.length > 0) {
-        const mapped: LocationResult[] = data.features.map((feature: any) => ({
-          name: feature.text,
-          address: feature.place_name,
-          latitude: feature.center[1],
-          longitude: feature.center[0],
-        }));
-        setResults(mapped);
-        setShowResults(true);
-      } else {
-        setResults([]);
-        setShowResults(true);
+      const { results, error } = await searchPlaces(searchQuery, {
+        proximity: proximity || undefined,
+        limit: 5,
+      });
+      setResults(results);
+      setShowResults(true);
+      if (!results.length && error) {
+        setSearchError(error);
       }
     } catch (error) {
-      console.error('Mapbox search error:', error);
+      console.error('Place search error:', error);
       setResults([]);
       setShowResults(true);
+      setSearchError('Search failed. Check your connection and try again.');
     } finally {
       setIsSearching(false);
     }
@@ -201,12 +187,10 @@ export const LocationSearchInput = forwardRef<LocationSearchInputRef, LocationSe
       let locationName = 'Current Location';
       let locationAddress = 'Your current location';
       try {
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.features && data.features.length > 0) {
-          locationName = data.features[0].text;
-          locationAddress = data.features[0].place_name;
+        const place = await geoApi.reverse(latitude, longitude);
+        if (place) {
+          locationName = place.name;
+          locationAddress = place.address;
         }
       } catch {}
 
@@ -309,8 +293,13 @@ export const LocationSearchInput = forwardRef<LocationSearchInputRef, LocationSe
           ) : (
             <View style={styles.noResultsContainer}>
               <Ionicons name="search-outline" size={32} color="#CCC" />
-              <Text style={styles.noResultsText}>No locations found</Text>
-              <Text style={styles.noResultsSubtext}>Try searching for popular areas like MG Road, Koramangala, etc.</Text>
+              <Text style={styles.noResultsText}>
+                {searchError ? 'Search unavailable' : 'No locations found'}
+              </Text>
+              <Text style={styles.noResultsSubtext}>
+                {searchError ||
+                  'Try a nearby area or landmark (e.g. Anna Nagar, Railway Station).'}
+              </Text>
             </View>
           )}
         </View>

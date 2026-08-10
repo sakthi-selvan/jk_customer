@@ -6,6 +6,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "android": {
         "gradleCommand": ":app:assembleDebug",
         "buildType": "apk"
@@ -18,16 +19,20 @@
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "android": {
         "buildType": "apk"
       },
       "env": {
         "MAPBOX_DOWNLOADS_TOKEN": "@MAPBOX_DOWNLOADS_TOKEN",
         "RNMAPBOX_MAPS_DOWNLOAD_TOKEN": "@MAPBOX_DOWNLOADS_TOKEN",
-        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN": "@MAPBOX_PUBLIC_TOKEN"
+        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN": "@MAPBOX_PUBLIC_TOKEN",
+        "EXPO_PUBLIC_API_URL": "https://api.jktaxitamilnadu.com",
+        "EXPO_PUBLIC_ENVIRONMENT": "preview"
       }
     },
     "production": {
+      "environment": "production",
       "android": {
         "buildType": "app-bundle"
       },
