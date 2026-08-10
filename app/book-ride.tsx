@@ -192,28 +192,37 @@ export default function BookRideScreen() {
 
     let baseFare = base;
     let distanceFare = roadKm * perKm;
+    let platformFee = platform;
+    let billedKm = roadKm;
+
     if (trip === TripType.RENTAL) {
       baseFare = hourly;
       distanceFare = Math.max(0, roadKm - 10) * perKm;
-    } else if (trip === TripType.ROUND_TRIP || trip === TripType.OUTSTATION) {
+    } else if (trip === TripType.ROUND_TRIP) {
+      // Exact 2× one-way (outbound + return)
+      billedKm = roadKm * 2;
+      baseFare = base * 2;
+      distanceFare = billedKm * perKm;
+      platformFee = platform * 2;
+    } else if (trip === TripType.OUTSTATION) {
       distanceFare = roadKm * perKm * 1.5;
     }
 
-    const subtotal = baseFare + distanceFare + platform;
+    const subtotal = baseFare + distanceFare + platformFee;
     const gst = subtotal * 0.05;
     const total = subtotal + gst;
 
     return {
       base_fare: Math.round(baseFare * 100) / 100,
       distance_fare: Math.round(distanceFare * 100) / 100,
-      platform_fee: platform,
+      platform_fee: platformFee,
       gst: Math.round(gst * 100) / 100,
       toll_charges: 0,
       night_charges: 0,
       waiting_charges: 0,
       total: Math.round(total * 100) / 100,
-      distance_km: Math.round(roadKm * 100) / 100,
-      duration_minutes: Math.round((roadKm / 25) * 60 * 10) / 10,
+      distance_km: Math.round(billedKm * 100) / 100,
+      duration_minutes: Math.round((billedKm / 25) * 60 * 10) / 10,
       route_source: 'estimate',
     };
   };
