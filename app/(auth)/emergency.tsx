@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { formatApiDetail } from '../../src/utils/apiError';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,7 +60,7 @@ export default function EmergencyContactScreen() {
       });
       router.replace('/(auth)/welcome');
     } catch {
-      Alert.alert('Error', error || 'Failed to save profile');
+      Alert.alert('Error', formatApiDetail(error, 'Failed to save profile'));
     }
   };
 

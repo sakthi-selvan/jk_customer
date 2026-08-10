@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { formatApiError } from '../src/utils/apiError';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -108,7 +109,7 @@ export default function BookRideMapScreen() {
         [{ text: 'Track Ride', onPress: () => router.replace('/') }]
       );
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to book ride');
+      Alert.alert('Error', formatApiError(error, 'Failed to book ride'));
     } finally {
       setLoading(false);
     }

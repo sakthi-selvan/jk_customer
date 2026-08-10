@@ -10,6 +10,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import { formatApiError } from '../src/utils/apiError';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -82,7 +83,7 @@ export default function EditProfileScreen() {
     } catch (error: any) {
       Alert.alert(
         'Update Failed',
-        error.response?.data?.detail || 'Failed to update profile. Please try again.'
+        formatApiError(error, 'Failed to update profile. Please try again.')
       );
     } finally {
       setIsLoading(false);

@@ -12,6 +12,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import { formatApiError } from '../../utils/apiError';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { EnhancedRide } from '../../types/enhanced';
@@ -100,7 +101,7 @@ export const ActiveRideTracker: React.FC<ActiveRideTrackerProps> = ({ ride, onRi
             } catch (error: any) {
               Alert.alert(
                 'Cancellation Failed',
-                error.response?.data?.detail || 'Failed to cancel ride. Please try again.'
+                formatApiError(error, 'Failed to cancel ride. Please try again.')
               );
             }
           },

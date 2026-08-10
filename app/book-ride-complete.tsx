@@ -10,6 +10,7 @@ import {
   Platform,
   Switch,
 } from 'react-native';
+import { formatApiError } from '../src/utils/apiError';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -196,7 +197,7 @@ export default function BookRideCompleteScreen() {
         [{ text: 'Track Ride', onPress: () => router.replace('/') }]
       );
     } catch (error: any) {
-      Alert.alert('Booking Failed', error.response?.data?.detail || 'Failed to book ride');
+      Alert.alert('Booking Failed', formatApiError(error, 'Failed to book ride'));
     } finally {
       setLoading(false);
     }

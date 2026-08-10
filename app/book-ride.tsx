@@ -12,6 +12,7 @@ import {
   Modal,
   KeyboardAvoidingView,
 } from 'react-native';
+import { formatApiError } from '../src/utils/apiError';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -413,8 +414,7 @@ export default function BookRideScreen() {
         [{ text: 'Track Ride', onPress: () => router.replace('/') }]
       );
     } catch (error: any) {
-      const msg = error.response?.data?.detail || error.message || 'Failed to book ride';
-      Alert.alert('Booking Failed', msg);
+      Alert.alert('Booking Failed', formatApiError(error, 'Failed to book ride'));
     } finally {
       setLoading(false);
     }

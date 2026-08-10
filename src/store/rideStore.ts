@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { formatApiError } from '../utils/apiError';
 import { Ride, CreateRideData } from '../types';
 import { ridesApi } from '../api/rides';
 import { bookingEnhancedApi } from '../api/booking-enhanced';
@@ -83,7 +84,7 @@ export const useRideStore = create<RideState>((set, get) => ({
       get().startTracking();
       return ride;
     } catch (error: any) {
-      const errorMsg = error.response?.data?.detail || 'Failed to create ride';
+      const errorMsg = formatApiError(error, 'Failed to create ride');
       set({ error: errorMsg, isLoading: false });
       throw error;
     }
@@ -120,7 +121,7 @@ export const useRideStore = create<RideState>((set, get) => ({
       set({ activeRide: null, driverLocation: null, isLoading: false });
       get().stopTracking();
     } catch (error: any) {
-      const errorMsg = error.response?.data?.detail || 'Failed to cancel ride';
+      const errorMsg = formatApiError(error, 'Failed to cancel ride');
       set({ error: errorMsg, isLoading: false });
       throw error;
     }

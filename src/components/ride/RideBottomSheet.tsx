@@ -15,6 +15,7 @@ import {
   TextInput,
   Image,
 } from 'react-native';
+import { formatApiError } from '../../utils/apiError';
 import { Ionicons } from '@expo/vector-icons';
 import { EnhancedRide } from '../../types/enhanced';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../constants/theme';
@@ -222,7 +223,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
       Alert.alert('Cancelled', 'Your ride has been cancelled.');
       onRideComplete();
     } catch (e: any) {
-      Alert.alert('Failed', e.response?.data?.detail || 'Could not cancel ride.');
+      Alert.alert('Failed', formatApiError(e, 'Could not cancel ride.'));
     }
   };
 
@@ -279,7 +280,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
         [{ text: 'OK' }]
       );
     } catch (e: any) {
-      Alert.alert('Share failed', e.response?.data?.detail || 'Could not create share link');
+      Alert.alert('Share failed', formatApiError(e, 'Could not create share link'));
     }
   };
 
@@ -289,7 +290,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
       await bookingEnhancedApi.submitRating(ride.id, rating);
       Alert.alert('Thank You!', 'Your rating was saved.', [{ text: 'OK', onPress: onRideComplete }]);
     } catch (e: any) {
-      Alert.alert('Failed', e.response?.data?.detail || 'Could not submit rating');
+      Alert.alert('Failed', formatApiError(e, 'Could not submit rating'));
     }
   };
 

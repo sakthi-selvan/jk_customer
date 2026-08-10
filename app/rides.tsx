@@ -10,6 +10,7 @@ import {
   Linking,
   RefreshControl,
 } from 'react-native';
+import { formatApiError, formatApiDetail } from '../src/utils/apiError';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -133,7 +134,7 @@ export default function RidesScreen() {
               let errorMessage = 'Failed to cancel ride. Please try again.';
 
               if (error.response?.status === 400) {
-                errorMessage = error.response.data?.detail || 'This ride cannot be cancelled anymore.';
+                errorMessage = formatApiDetail(error.response.data?.detail, 'This ride cannot be cancelled anymore.');
               } else if (error.response?.status === 404) {
                 errorMessage = 'Ride not found. It may have already been cancelled or completed.';
                 loadRides();
@@ -155,7 +156,7 @@ export default function RidesScreen() {
       await bookingEnhancedApi.submitRating(ratingRideId, rating, comment);
       Alert.alert('Thank You!', 'Your rating has been submitted successfully');
     } catch (error: any) {
-      Alert.alert('Failed', error.response?.data?.detail || 'Could not submit rating');
+      Alert.alert('Failed', formatApiError(error, 'Could not submit rating'));
       throw error;
     }
   };
