@@ -1,4 +1,4 @@
-import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox-config';
+import { getMapboxAccessToken } from '../config/mapbox-config';
 import { geoApi, type PlaceResult } from '../api/geo';
 
 export type { PlaceResult };
@@ -26,7 +26,8 @@ export async function searchPlaces(
     // fall through — common when offline or older backend without /geo
   }
 
-  if (!MAPBOX_ACCESS_TOKEN) {
+  const token = getMapboxAccessToken();
+  if (!token) {
     return {
       results: [],
       source: 'none',
@@ -37,7 +38,7 @@ export async function searchPlaces(
   try {
     let url =
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json` +
-      `?access_token=${MAPBOX_ACCESS_TOKEN}&limit=${opts?.limit ?? 5}` +
+      `?access_token=${token}&limit=${opts?.limit ?? 5}` +
       `&country=IN&types=place,locality,neighborhood,address,poi,district,region&language=en`;
     if (opts?.proximity) {
       url += `&proximity=${opts.proximity.longitude},${opts.proximity.latitude}`;

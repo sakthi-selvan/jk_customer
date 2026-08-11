@@ -4,6 +4,8 @@ import storage from '../utils/storage';
 import { User } from '../types';
 import { authApi, OTPAuthResponse } from '../api/auth';
 import { setApiToken, clearApiToken, setLogoutCallback } from '../api/client';
+import { ensureMapboxTokenAfterAuth, clearCachedMapboxToken } from '../services/mapboxAuth';
+import { resetMapboxRuntimeToken } from '../config/initMapbox';
 
 export interface SignupDraft {
   name: string;
@@ -106,6 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (!response.is_new_user) {
           const user = await authApi.getProfile();
           await storage.setItem('user', JSON.stringify(user));
+          await ensureMapboxTokenAfterAuth();
           set({
             user,
             isAuthenticated: true,
@@ -115,6 +118,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             pendingWelcome: false,
           });
         } else {
+          await ensureMapboxTokenAfterAuth();
           set({ isLoading: false });
         }
 
@@ -145,6 +149,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const user = await authApi.getProfile();
         await storage.setItem('user', JSON.stringify(user));
         await storage.setItem('pending_welcome', '1');
+        await ensureMapboxTokenAfterAuth();
 
         set({
           user,
@@ -172,6 +177,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     logout: async () => {
       clearApiToken();
+      resetMapboxRuntimeToken();
+      await clearCachedMapboxToken();
       await storage.multiRemove(['access_token', 'refresh_token', 'user', 'pending_welcome']);
       set({
         user: null,
@@ -196,6 +203,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (token && userStr) {
           const user = JSON.parse(userStr);
           setApiToken(token);
+          await ensureMapboxTokenAfterAuth();
           set({
             user,
             accessToken: token,

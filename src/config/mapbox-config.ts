@@ -1,6 +1,29 @@
 // Mapbox Configuration for JK Taxi
-export const MAPBOX_ACCESS_TOKEN =
-  process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+// Preview APKs may ship without EXPO_PUBLIC_*; after login we load a pk. token from the backend.
+
+let runtimeAccessToken = '';
+
+const envToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+
+/** Prefer runtime (from API) then build-time env. */
+export function getMapboxAccessToken(): string {
+  return runtimeAccessToken || envToken || '';
+}
+
+/** Apply token from backend after authentication. */
+export function setRuntimeMapboxToken(token: string | null | undefined): void {
+  const next = (token || '').trim();
+  if (next.length > 10) {
+    runtimeAccessToken = next;
+  }
+}
+
+export function clearRuntimeMapboxToken(): void {
+  runtimeAccessToken = '';
+}
+
+/** @deprecated Prefer getMapboxAccessToken() — kept for older imports (env-only snapshot). */
+export const MAPBOX_ACCESS_TOKEN = envToken;
 
 // Default map center (Bangalore, India)
 export const DEFAULT_CENTER = {

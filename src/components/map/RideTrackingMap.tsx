@@ -2,8 +2,9 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import { Ionicons } from '@expo/vector-icons';
-import { MAPBOX_ACCESS_TOKEN, MAP_STYLES, ANIMATION_DURATION } from '../../config/mapbox-config';
+import { MAP_STYLES, ANIMATION_DURATION, getMapboxAccessToken } from '../../config/mapbox-config';
 import { initMapbox, MAP_SURFACE_VIEW, mapboxTokenPresent } from '../../config/initMapbox';
+import { geoApi } from '../../api/geo';
 import { FontSizes, FontWeights, BorderRadius, Spacing } from '../../constants/theme';
 import { RouteProgressLayers } from './RouteProgressLayers';
 import { VehicleMarker } from './VehicleMarker';
@@ -156,7 +157,40 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
       onEtaUpdate?.(next.distance / 1000, next.duration / 60);
     };
 
-    if (!MAPBOX_ACCESS_TOKEN) {
+    // 1) Backend Directions (uses server Mapbox token — works in preview APKs)
+    try {
+      const backend = await geoApi.directions({ from, to, profile: 'driving-traffic' });
+      const coords = backend.coordinates as LngLat[] | undefined;
+      if (coords && coords.length >= 2 && backend.source === 'mapbox') {
+        apply(
+          {
+            coordinates: coords,
+            distance: backend.distance_m,
+            duration: backend.duration_s,
+          },
+          true
+        );
+        return;
+      }
+      // haversine from backend still better than nothing if multi-point; else fall through
+      if (coords && coords.length >= 2 && backend.distance_m > 0) {
+        apply(
+          {
+            coordinates: coords,
+            distance: backend.distance_m,
+            duration: backend.duration_s,
+          },
+          backend.source === 'mapbox'
+        );
+        if (backend.source === 'mapbox') return;
+      }
+    } catch (e) {
+      console.warn('[RideTrackingMap] backend directions failed', e);
+    }
+
+    // 2) Direct Mapbox (dev builds / when runtime token was loaded)
+    const token = getMapboxAccessToken();
+    if (!token) {
       apply(straightRoute(from, to), false);
       return;
     }
@@ -167,7 +201,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
         const url =
           `https://api.mapbox.com/directions/v5/mapbox/${profile}/` +
           `${from.longitude},${from.latitude};${to.longitude},${to.latitude}` +
-          `?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
+          `?geometries=geojson&overview=full&access_token=${token}`;
         const response = await fetch(url);
         const data = await response.json();
         if (!response.ok || data.message || !data.routes?.[0]) continue;
