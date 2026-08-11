@@ -199,7 +199,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
   const fetchNearby = async () => {
     try {
       const data = await bookingEnhancedApi.getNearbyDrivers();
-      setNearbyCount(data.nearby_count);
+      setNearbyCount((prev) => (prev === data.nearby_count ? prev : data.nearby_count));
     } catch {}
   };
 
@@ -434,6 +434,14 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
                 )}
                 <View style={styles.driverInfo}>
                   <Text style={styles.driverName}>{ride.driver_name || 'Captain'}</Text>
+                  <Text style={styles.driverStats}>
+                    {ride.driver_average_rating != null
+                      ? `★ ${ride.driver_average_rating.toFixed(1)}`
+                      : '★ New'}
+                    {' · '}
+                    {ride.driver_total_rides ?? 0}{' '}
+                    {(ride.driver_total_rides ?? 0) === 1 ? 'trip' : 'trips'}
+                  </Text>
                   <Text style={styles.driverVehicleType}>
                     {ride.driver_vehicle_type || ride.vehicle_category || 'Vehicle'}
                   </Text>
@@ -796,6 +804,7 @@ const styles = StyleSheet.create({
   },
   driverInfo: { flex: 1, marginLeft: Spacing.md },
   driverName: { fontSize: FontSizes.md, fontWeight: FontWeights.bold, color: '#000' },
+  driverStats: { fontSize: FontSizes.sm, color: '#666', marginTop: 2 },
   driverVehicleType: { fontSize: FontSizes.sm, color: '#666', marginTop: 2 },
   plateBadge: {
     alignSelf: 'flex-start',

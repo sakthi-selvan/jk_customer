@@ -30,6 +30,7 @@ import { searchPlaces } from '../../services/placesSearch';
 import { bookingEnhancedApi, userEnhancedApi } from '../../api/booking-enhanced';
 import { EnhancedRide, SavedPlaces } from '../../types/enhanced';
 import { navigateIfNeeded } from '../../utils/navigation';
+import { samePinList } from '../../utils/stableUpdate';
 
 const { width, height } = Dimensions.get('window');
 
@@ -98,17 +99,18 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
           vehicle_category: (activeRide as any).vehicle_category || undefined,
         });
         if (cancelled) return;
-        setSearchingNearbyPins(
-          (res.drivers || []).map((d) => ({
+        setSearchingNearbyPins((prev) => {
+          const next = (res.drivers || []).map((d) => ({
             id: d.id,
             latitude: d.latitude,
             longitude: d.longitude,
             category: (d as any).category || d.vehicle_type || 'mini',
             heading: (d as any).heading ?? null,
-          }))
-        );
+          }));
+          return samePinList(prev, next) ? prev : next;
+        });
       } catch {
-        if (!cancelled) setSearchingNearbyPins([]);
+        // Keep previous pins on soft poll failure
       }
     };
     load();

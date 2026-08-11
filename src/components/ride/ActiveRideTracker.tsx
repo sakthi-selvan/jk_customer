@@ -71,6 +71,11 @@ export const ActiveRideTracker: React.FC<ActiveRideTrackerProps> = ({ ride, onRi
   const currentStatus = STATUS_INFO[ride.status as keyof typeof STATUS_INFO] || STATUS_INFO.pending;
   const rejectionCount = ride.rejection_count ?? 0;
   const driverName = (ride as any).driver_name || ride.driver?.name || 'Driver';
+  const driverRating =
+    ride.driver_average_rating != null
+      ? ride.driver_average_rating.toFixed(1)
+      : null;
+  const driverTrips = ride.driver_total_rides ?? 0;
   const driverPhone = (ride as any).driver_phone || ride.driver?.phone || null;
   const vehicleNumber = (ride as any).driver_vehicle_number || ride.driver?.vehicle_number || '—';
   const vehicleType = (ride as any).driver_vehicle_type || ride.driver?.vehicle_type || ride.vehicle_category || '—';
@@ -309,7 +314,9 @@ export const ActiveRideTracker: React.FC<ActiveRideTrackerProps> = ({ ride, onRi
                 <Text style={styles.driverName}>{driverName}</Text>
                 <View style={styles.driverRating}>
                   <Ionicons name="star" size={14} color="#F59E0B" />
-                  <Text style={styles.driverRatingText}>—</Text>
+                  <Text style={styles.driverRatingText}>
+                    {driverRating ?? 'New'} · {driverTrips} {driverTrips === 1 ? 'trip' : 'trips'}
+                  </Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.callButton} onPress={handleCallDriver}>

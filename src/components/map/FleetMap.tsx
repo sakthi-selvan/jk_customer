@@ -12,6 +12,7 @@ import {
   normalizeFleetCategory,
 } from './VehicleMarker';
 import { FontSizes, FontWeights, Spacing } from '../../constants/theme';
+import { samePinList } from '../../utils/stableUpdate';
 
 initMapbox();
 
@@ -104,7 +105,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
         vehicle_type: d.vehicle_type || '',
         category: (d as any).category || normalizeFleetCategory(d.vehicle_type),
       }));
-      setDrivers(pins);
+      setDrivers((prev) => (samePinList(prev, pins) ? prev : pins));
     } catch (e) {
       console.log('[FleetMap] nearby load failed', e);
     }

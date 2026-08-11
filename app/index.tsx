@@ -16,11 +16,11 @@ export default function HomeScreen() {
     checkLocationPermission();
   }, []);
 
-  // Poll for active ride updates every 10 seconds
+  // Silent background poll — do not flash loading UI
   useEffect(() => {
     const interval = setInterval(() => {
-      getActiveRide();
-    }, 10000);
+      getActiveRide({ silent: true });
+    }, 15000);
 
     return () => clearInterval(interval);
   }, []);

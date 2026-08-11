@@ -66,14 +66,17 @@ export default function RidesScreen() {
 
   const loadRides = async () => {
     await Promise.all([
-      getActiveRide(),
-      loadRideHistory()
+      getActiveRide({ silent: Boolean(activeRide) }),
+      loadRideHistory({ silent: rideHistory.length > 0 }),
     ]);
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadRides();
+    await Promise.all([
+      getActiveRide({ silent: true }),
+      loadRideHistory({ silent: true }),
+    ]);
     setRefreshing(false);
   };
 

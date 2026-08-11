@@ -108,6 +108,9 @@ export interface EnhancedRide {
   driver_vehicle_number?: string;
   driver_vehicle_type?: string;
   driver_vehicle_image?: string;
+  driver_total_rides?: number;
+  driver_average_rating?: number | null;
+  driver_rating_count?: number;
   rejection_count?: number;
   created_at: string;
   updated_at: string;

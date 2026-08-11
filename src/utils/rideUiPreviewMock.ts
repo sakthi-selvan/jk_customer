@@ -227,6 +227,9 @@ export function buildPreviewRide(phase: PreviewPhase): EnhancedRide {
     driver_vehicle_image: assigned
       ? 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=400&q=80'
       : undefined,
+    driver_total_rides: assigned ? 128 : undefined,
+    driver_average_rating: assigned ? 4.8 : undefined,
+    driver_rating_count: assigned ? 96 : undefined,
     rejection_count: phase === 'searching' ? 1 : 0,
     created_at: now,
     updated_at: now,

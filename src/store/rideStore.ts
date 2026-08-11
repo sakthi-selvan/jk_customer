@@ -5,6 +5,7 @@ import { ridesApi } from '../api/rides';
 import { bookingEnhancedApi } from '../api/booking-enhanced';
 import { rideRealtime } from '../services/realtime';
 import { useAuthStore } from './authStore';
+import { sameRideUi } from '../utils/stableUpdate';
 
 interface UserLocation {
   latitude: number;
@@ -40,9 +41,9 @@ interface RideState {
   setUserLocation: (loc: UserLocation) => void;
   setPendingLocationPick: (loc: UserLocation | null) => void;
   createRide: (data: CreateRideData) => Promise<Ride>;
-  getActiveRide: () => Promise<void>;
+  getActiveRide: (opts?: { silent?: boolean }) => Promise<void>;
   cancelRide: (rideId: string) => Promise<void>;
-  loadRideHistory: () => Promise<void>;
+  loadRideHistory: (opts?: { silent?: boolean }) => Promise<void>;
   clearActiveRide: () => void;
   clearError: () => void;
   startTracking: () => void;
@@ -90,23 +91,36 @@ export const useRideStore = create<RideState>((set, get) => ({
     }
   },
 
-  getActiveRide: async () => {
+  getActiveRide: async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? Boolean(get().activeRide);
     try {
-      set({ isLoading: true, error: null });
+      if (!silent) set({ isLoading: true, error: null });
       const ride = await bookingEnhancedApi.getActiveRide();
       if (!ride) {
-        set({ activeRide: null, isLoading: false });
+        const prev = get().activeRide;
+        if (prev != null || get().isLoading) {
+          set({ activeRide: null, isLoading: false });
+        } else if (!silent) {
+          set({ isLoading: false });
+        }
         get().stopTracking();
         return;
       }
-      set({ activeRide: ride as any, isLoading: false, lastStatusAt: Date.now() });
+      const prev = get().activeRide;
+      if (!sameRideUi(prev, ride)) {
+        set({ activeRide: ride as any, isLoading: false, lastStatusAt: Date.now() });
+      } else if (!silent || get().isLoading) {
+        set({ isLoading: false, lastStatusAt: Date.now() });
+      }
       if (['pending', 'accepted', 'started'].includes(ride.status)) {
         get().startTracking();
       }
     } catch (error: any) {
       // Network / unexpected only — no-active-ride is handled as null above
       if (error.response?.status === 404) {
-        set({ activeRide: null, isLoading: false });
+        if (get().activeRide != null || get().isLoading) {
+          set({ activeRide: null, isLoading: false });
+        }
         get().stopTracking();
       } else {
         set({ error: 'Failed to fetch active ride', isLoading: false });
@@ -127,11 +141,23 @@ export const useRideStore = create<RideState>((set, get) => ({
     }
   },
 
-  loadRideHistory: async () => {
+  loadRideHistory: async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? get().rideHistory.length > 0;
     try {
-      set({ isLoading: true, error: null });
+      if (!silent) set({ isLoading: true, error: null });
       const history = await bookingEnhancedApi.getRideHistory();
-      set({ rideHistory: history as any, isLoading: false });
+      const prev = get().rideHistory;
+      const next = history as any;
+      const unchanged =
+        Array.isArray(prev) &&
+        Array.isArray(next) &&
+        prev.length === next.length &&
+        prev.every((r, i) => sameRideUi(r, next[i]));
+      if (!unchanged) {
+        set({ rideHistory: next, isLoading: false });
+      } else if (!silent || get().isLoading) {
+        set({ isLoading: false });
+      }
     } catch (error: any) {
       set({ error: 'Failed to load ride history', isLoading: false });
     }
@@ -165,7 +191,9 @@ export const useRideStore = create<RideState>((set, get) => ({
         }
         if (tracking.status && get().activeRide && tracking.status !== get().activeRide!.status) {
           const refreshed = await bookingEnhancedApi.getActiveRide();
-          set({ activeRide: refreshed as any, lastStatusAt: Date.now() });
+          if (!sameRideUi(get().activeRide, refreshed)) {
+            set({ activeRide: refreshed as any, lastStatusAt: Date.now() });
+          }
         }
       } catch {
         // ignore — WS / next poll will fill in
@@ -236,7 +264,11 @@ export const useRideStore = create<RideState>((set, get) => ({
               lastStatusAt: Date.now(),
             });
             bookingEnhancedApi.getActiveRide()
-              .then((ride) => set({ activeRide: ride as any, lastStatusAt: Date.now() }))
+              .then((ride) => {
+                if (!sameRideUi(get().activeRide, ride)) {
+                  set({ activeRide: ride as any, lastStatusAt: Date.now() });
+                }
+              })
               .catch(() => undefined);
             return;
           }
@@ -249,7 +281,11 @@ export const useRideStore = create<RideState>((set, get) => ({
               lastStatusAt: Date.now(),
             });
             bookingEnhancedApi.getActiveRide()
-              .then((ride) => set({ activeRide: ride as any }))
+              .then((ride) => {
+                if (!sameRideUi(get().activeRide, ride)) {
+                  set({ activeRide: ride as any });
+                }
+              })
               .catch(() => set({ activeRide: null, driverLocation: null }))
               .finally(() => get().stopTracking());
             return;
@@ -258,7 +294,11 @@ export const useRideStore = create<RideState>((set, get) => ({
           // Accept / start: refresh ride + immediately seed driver GPS for map path
           bookingEnhancedApi.getActiveRide()
             .then((ride) => {
-              set({ activeRide: ride as any, lastStatusAt: Date.now() });
+              if (!sameRideUi(get().activeRide, ride)) {
+                set({ activeRide: ride as any, lastStatusAt: Date.now() });
+              } else {
+                set({ lastStatusAt: Date.now() });
+              }
               if (event === 'ride_accepted' || event === 'ride_started') {
                 seedDriverLocation();
               }
@@ -305,7 +345,9 @@ export const useRideStore = create<RideState>((set, get) => ({
         }
         if (tracking.status && tracking.status !== ride.status) {
           const refreshed = await bookingEnhancedApi.getActiveRide();
-          set({ activeRide: refreshed as any, lastStatusAt: Date.now() });
+          if (!sameRideUi(get().activeRide, refreshed)) {
+            set({ activeRide: refreshed as any, lastStatusAt: Date.now() });
+          }
           if (refreshed.status === 'completed' || refreshed.status === 'cancelled') {
             get().stopTracking();
             return;
