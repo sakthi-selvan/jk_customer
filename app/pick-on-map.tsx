@@ -22,6 +22,21 @@ interface SearchResult {
 }
 
 const PLACEHOLDER_ADDRESS = 'Fetching location...';
+const ADDRESS_DEBOUNCE_MS = 280;
+const NEAR_EPS = 0.00015; // ~15m — treat as same pin
+
+function coordsLabel(lat: number, lng: number) {
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+function isNear(
+  a: { lat: number; lng: number } | null | undefined,
+  lat: number,
+  lng: number
+) {
+  if (!a) return false;
+  return Math.abs(a.lat - lat) < NEAR_EPS && Math.abs(a.lng - lng) < NEAR_EPS;
+}
 
 export default function PickOnMapScreen() {
   const { setPendingLocationPick, userLocation } = useRideStore();
@@ -49,15 +64,18 @@ export default function PickOnMapScreen() {
   const centerRef = useRef(initial);
   const [address, setAddress] = useState(PLACEHOLDER_ADDRESS);
   const [isLoadingAddress, setIsLoadingAddress] = useState(true);
+  const [isMapMoving, setIsMapMoving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const cameraRef = useRef<Mapbox.Camera>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchedLocation = useRef<{ lat: number; lng: number } | null>(null);
+  const resolvedFor = useRef<{ lat: number; lng: number; address: string } | null>(null);
   const fetchSeq = useRef(0);
   const isProgrammaticMove = useRef(false);
 
@@ -106,11 +124,11 @@ export default function PickOnMapScreen() {
     cameraRef.current?.setCamera({
       centerCoordinate: [longitude, latitude],
       zoomLevel,
-      animationDuration: 600,
+      animationDuration: 400,
     });
     setTimeout(() => {
       isProgrammaticMove.current = false;
-    }, 700);
+    }, 450);
   };
 
   const reverseGeocodeFallback = async (lat: number, lng: number): Promise<string | null> => {
@@ -125,11 +143,56 @@ export default function PickOnMapScreen() {
     }
   };
 
+  /** Race backend + Mapbox + device; first good address wins (fast). */
+  const resolveAddressFast = async (lat: number, lng: number): Promise<string> => {
+    const fallback = coordsLabel(lat, lng);
+
+    const tasks: Promise<string>[] = [
+      geoApi
+        .reverse(lat, lng)
+        .then((place) => {
+          if (!place?.address) throw new Error('empty');
+          return place.address;
+        }),
+    ];
+
+    if (MAPBOX_ACCESS_TOKEN) {
+      tasks.push(
+        fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`
+        ).then(async (response) => {
+          const data = await response.json();
+          const name = data.features?.[0]?.place_name;
+          if (!name) throw new Error('empty');
+          return name;
+        })
+      );
+    }
+
+    tasks.push(
+      reverseGeocodeFallback(lat, lng).then((v) => {
+        if (!v) throw new Error('empty');
+        return v;
+      })
+    );
+
+    try {
+      return await Promise.any(tasks);
+    } catch {
+      return fallback;
+    }
+  };
+
   const fetchAddress = async (lat: number, lng: number, skipDebounce = false) => {
     if (lastFetchedLocation.current && !skipDebounce) {
-      const latDiff = Math.abs(lastFetchedLocation.current.lat - lat);
-      const lngDiff = Math.abs(lastFetchedLocation.current.lng - lng);
-      if (latDiff < 0.0005 && lngDiff < 0.0005) return;
+      if (isNear(lastFetchedLocation.current, lat, lng)) return;
+    }
+
+    // Already have a resolved label for this pin
+    if (resolvedFor.current && isNear(resolvedFor.current, lat, lng)) {
+      setAddress(resolvedFor.current.address);
+      setIsLoadingAddress(false);
+      return;
     }
 
     lastFetchedLocation.current = { lat, lng };
@@ -137,35 +200,15 @@ export default function PickOnMapScreen() {
     setIsLoadingAddress(true);
 
     try {
-      let resolved: string | null = null;
-
-      try {
-        const place = await geoApi.reverse(lat, lng);
-        if (place?.address) resolved = place.address;
-      } catch {
-        // fall through
-      }
-
-      if (!resolved && MAPBOX_ACCESS_TOKEN) {
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.features?.[0]?.place_name) {
-          resolved = data.features[0].place_name;
-        }
-      }
-
-      if (!resolved) {
-        resolved = await reverseGeocodeFallback(lat, lng);
-      }
-
+      const resolved = await resolveAddressFast(lat, lng);
       if (seq !== fetchSeq.current) return;
-      setAddress(resolved || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      resolvedFor.current = { lat, lng, address: resolved };
+      setAddress(resolved);
     } catch {
       if (seq !== fetchSeq.current) return;
-      const fallback = await reverseGeocodeFallback(lat, lng);
-      if (seq !== fetchSeq.current) return;
-      setAddress(fallback || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      const fallback = coordsLabel(lat, lng);
+      resolvedFor.current = { lat, lng, address: fallback };
+      setAddress(fallback);
     } finally {
       if (seq === fetchSeq.current) setIsLoadingAddress(false);
     }
@@ -192,61 +235,74 @@ export default function PickOnMapScreen() {
   const handleSearchResultSelect = (result: SearchResult) => {
     setAddress(result.address);
     lastFetchedLocation.current = { lat: result.latitude, lng: result.longitude };
+    resolvedFor.current = {
+      lat: result.latitude,
+      lng: result.longitude,
+      address: result.address,
+    };
     setIsLoadingAddress(false);
+    setIsMapMoving(false);
     setSearchQuery('');
     setSearchResults([]);
     setShowSearch(false);
     moveCamera(result.latitude, result.longitude, 16);
   };
 
-  const handleRegionChange = (feature: any) => {
+  const handleRegionIsChanging = () => {
+    if (!mapReady || isProgrammaticMove.current) return;
+    setIsMapMoving(true);
+    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+  };
+
+  const handleRegionDidChange = (feature: any) => {
     if (!mapReady || isProgrammaticMove.current) return;
     const [lng, lat] = feature.geometry.coordinates;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     centerRef.current = { latitude: lat, longitude: lng };
+    setIsMapMoving(false);
 
     if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
-    setIsLoadingAddress(true);
+    // Soft loading indicator only — Confirm stays enabled once map has stopped
+    if (!(resolvedFor.current && isNear(resolvedFor.current, lat, lng))) {
+      setIsLoadingAddress(true);
+    }
     addressDebounceRef.current = setTimeout(() => {
       fetchAddress(lat, lng);
-    }, 650);
+    }, ADDRESS_DEBOUNCE_MS);
   };
 
   const handleConfirm = async () => {
+    if (confirming || isMapMoving) return;
     const { latitude, longitude } = centerRef.current;
-    setIsLoadingAddress(true);
+    setConfirming(true);
 
-    let resolved = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-    try {
+    // Prefer already-resolved address for this pin — no second network round-trip
+    let resolved =
+      (resolvedFor.current && isNear(resolvedFor.current, latitude, longitude)
+        ? resolvedFor.current.address
+        : null) ||
+      (address && address !== PLACEHOLDER_ADDRESS && address !== 'Getting address…'
+        ? address
+        : null);
+
+    if (!resolved || resolved === coordsLabel(latitude, longitude)) {
+      // Brief attempt only; never block the user for long
       try {
-        const place = await geoApi.reverse(latitude, longitude);
-        if (place?.address) resolved = place.address;
+        resolved = await Promise.race([
+          resolveAddressFast(latitude, longitude),
+          new Promise<string>((r) => setTimeout(() => r(coordsLabel(latitude, longitude)), 900)),
+        ]);
       } catch {
-        if (MAPBOX_ACCESS_TOKEN) {
-          const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
-          const response = await fetch(url);
-          const data = await response.json();
-          if (data.features?.[0]?.place_name) resolved = data.features[0].place_name;
-        } else {
-          const fb = await reverseGeocodeFallback(latitude, longitude);
-          if (fb) resolved = fb;
-        }
+        resolved = coordsLabel(latitude, longitude);
       }
-      if (resolved === `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`) {
-        const fb = await reverseGeocodeFallback(latitude, longitude);
-        if (fb) resolved = fb;
-      }
-    } catch {
-      const fb = await reverseGeocodeFallback(latitude, longitude);
-      if (fb) resolved = fb;
-    } finally {
-      setIsLoadingAddress(false);
     }
 
+    resolvedFor.current = { lat: latitude, lng: longitude, address: resolved };
     setAddress(resolved);
+    setIsLoadingAddress(false);
     setPendingLocationPick({
-      name: resolved.split(',')[0],
+      name: resolved.split(',')[0] || 'Selected location',
       address: resolved,
       latitude,
       longitude,
@@ -255,7 +311,8 @@ export default function PickOnMapScreen() {
     router.back();
   };
 
-  const canConfirm = !isLoadingAddress;
+  // Confirm as soon as the user stops moving the map — don't wait for geocode spinner
+  const canConfirm = mapReady && !isMapMoving && !confirming;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -316,7 +373,8 @@ export default function PickOnMapScreen() {
           style={styles.map}
           styleURL="mapbox://styles/mapbox/streets-v12"
           surfaceView={MAP_SURFACE_VIEW}
-          onRegionDidChange={handleRegionChange}
+          onRegionIsChanging={handleRegionIsChanging}
+          onRegionDidChange={handleRegionDidChange}
           onDidFinishLoadingMap={() => setMapReady(true)}
         >
           <Mapbox.Camera
@@ -341,13 +399,15 @@ export default function PickOnMapScreen() {
 
       <View style={styles.bottomCard}>
         <View style={styles.addressContainer}>
-          {isLoadingAddress ? (
+          {isLoadingAddress || isMapMoving ? (
             <>
               <ActivityIndicator size="small" color={Colors.primary} />
               <Text style={styles.addressText} numberOfLines={2}>
-                {address && address !== PLACEHOLDER_ADDRESS && address !== 'Moving map...'
-                  ? address
-                  : 'Getting address…'}
+                {isMapMoving
+                  ? 'Move map to adjust…'
+                  : address && address !== PLACEHOLDER_ADDRESS
+                    ? address
+                    : 'Getting address…'}
               </Text>
             </>
           ) : (
@@ -363,7 +423,13 @@ export default function PickOnMapScreen() {
           onPress={handleConfirm}
           disabled={!canConfirm}
         >
-          <Text style={styles.confirmButtonText}>Confirm Location</Text>
+          {confirming ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={styles.confirmButtonText}>
+              {isMapMoving ? 'Stop to confirm' : 'Confirm Location'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
