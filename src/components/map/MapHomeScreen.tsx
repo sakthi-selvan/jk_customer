@@ -16,7 +16,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FleetMap } from './FleetMap';
@@ -29,6 +29,7 @@ import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../con
 import { searchPlaces } from '../../services/placesSearch';
 import { bookingEnhancedApi, userEnhancedApi } from '../../api/booking-enhanced';
 import { EnhancedRide, SavedPlaces } from '../../types/enhanced';
+import { navigateIfNeeded } from '../../utils/navigation';
 
 const { width, height } = Dimensions.get('window');
 
@@ -45,6 +46,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const { activeRide, getActiveRide, driverLocation, startTracking, stopTracking, setUserLocation, setPendingLocationPick } = useRideStore();
   const [liveEta, setLiveEta] = useState<{ distance: number; duration: number } | null>(null);
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
 
   // Default location (Bangalore city center)
   const [location, setLocation] = useState({
@@ -298,6 +300,11 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
     setMenuOpen(!menuOpen);
   };
 
+  const go = (href: string) => {
+    toggleMenu();
+    navigateIfNeeded(pathname, href);
+  };
+
   const handleRideComplete = async () => {
     // Refresh to check if ride is truly complete
     await getActiveRide();
@@ -449,13 +456,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
           )}
 
           <View style={styles.menuSection}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                toggleMenu();
-                router.push('/');
-              }}
-            >
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('/')}>
               <View style={styles.menuItemIconContainer}>
                 <Ionicons name="home" size={24} color={Colors.primary} />
               </View>
@@ -463,13 +464,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                toggleMenu();
-                router.push('/rides');
-              }}
-            >
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('/rides')}>
               <View style={styles.menuItemIconContainer}>
                 <Ionicons name="list" size={24} color={Colors.primary} />
               </View>
@@ -477,13 +472,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                toggleMenu();
-                router.push('/profile');
-              }}
-            >
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('/profile')}>
               <View style={styles.menuItemIconContainer}>
                 <Ionicons name="person" size={24} color={Colors.primary} />
               </View>
@@ -491,13 +480,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                toggleMenu();
-                router.push('/ride-ui-preview');
-              }}
-            >
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('/ride-ui-preview')}>
               <View style={styles.menuItemIconContainer}>
                 <Ionicons name="play-circle" size={24} color={Colors.primary} />
               </View>

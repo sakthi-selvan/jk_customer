@@ -2,9 +2,10 @@ import React, { useState, useRef } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity, ScrollView, Text, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../constants/theme';
+import { navigateIfNeeded } from '../../utils/navigation';
 
 interface ScreenWrapperProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
   showBack = false,
 }) => {
   const { user } = useAuthStore();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuSlideAnim = useRef(new Animated.Value(-320)).current;
 
@@ -30,6 +32,12 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
       friction: 11,
     }).start();
     setMenuOpen(!menuOpen);
+  };
+
+  const go = (href: string) => {
+    if (menuOpen) toggleMenu();
+    else setMenuOpen(false);
+    navigateIfNeeded(pathname, href);
   };
 
   return (
@@ -93,13 +101,7 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
           <View style={styles.menuSection}>
             <Text style={styles.menuSectionTitle}>MAIN MENU</Text>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                toggleMenu();
-                router.push('/');
-              }}
-            >
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('/')}>
               <View style={styles.menuItemIconContainer}>
                 <Ionicons name="home" size={24} color={Colors.primary} />
               </View>
@@ -107,13 +109,7 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                toggleMenu();
-                router.push('/rides');
-              }}
-            >
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('/rides')}>
               <View style={styles.menuItemIconContainer}>
                 <Ionicons name="list" size={24} color={Colors.primary} />
               </View>
@@ -121,13 +117,7 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                toggleMenu();
-                router.push('/profile');
-              }}
-            >
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('/profile')}>
               <View style={styles.menuItemIconContainer}>
                 <Ionicons name="person" size={24} color={Colors.primary} />
               </View>

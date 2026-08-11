@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import { Colors, FontWeights, Shadows, BorderRadius } from '../../constants/theme';
+import { isCurrentRoute } from '../../utils/navigation';
 
 type TabKey = 'home' | 'rides' | 'profile';
 
@@ -58,7 +59,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ hidden }) => {
                 style={styles.item}
                 activeOpacity={0.85}
                 onPress={() => {
-                  if (!active) router.replace(tab.href as any);
+                  if (isCurrentRoute(pathname, tab.href)) return;
+                  router.replace(tab.href as any);
                 }}
               >
                 <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
