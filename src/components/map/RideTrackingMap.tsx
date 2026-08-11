@@ -103,8 +103,40 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
   const cameraRef = useRef<Mapbox.Camera>(null);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [mapError, setMapError] = useState<string | null>(
-    mapboxTokenPresent() ? null : 'Map token missing in this build'
+    mapboxTokenPresent() ? null : 'Loading map…'
   );
+  const [mapReady, setMapReady] = useState(mapboxTokenPresent());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (mapboxTokenPresent()) {
+        initMapbox();
+        if (!cancelled) {
+          setMapReady(true);
+          setMapError(null);
+        }
+        return;
+      }
+      try {
+        const { ensureMapboxTokenAfterAuth } = await import('../../services/mapboxAuth');
+        const ok = await ensureMapboxTokenAfterAuth();
+        if (cancelled) return;
+        if (ok) {
+          setMapReady(true);
+          setMapError(null);
+        } else {
+          setMapError('Map is unavailable. Check connection and try again.');
+        }
+      } catch {
+        if (!cancelled) setMapError('Map is unavailable. Check connection and try again.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const lastFetchRef = useRef<number>(0);
   const phaseRef = useRef<string>('');
   const fetchGenRef = useRef(0);
@@ -402,6 +434,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
 
   return (
     <View style={styles.container}>
+      {mapReady ? (
       <Mapbox.MapView
         style={styles.map}
         styleURL={MAP_STYLES.STREETS}
@@ -500,8 +533,14 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
             </Mapbox.MarkerView>
           ))}
       </Mapbox.MapView>
+      ) : (
+        <View style={[styles.map, styles.mapError]}>
+          <Ionicons name="map-outline" size={28} color="#64748B" />
+          <Text style={styles.mapErrorText}>{mapError || 'Loading map…'}</Text>
+        </View>
+      )}
 
-      {mapError ? (
+      {mapError && mapReady ? (
         <View style={styles.mapError} pointerEvents="none">
           <Ionicons name="map-outline" size={28} color="#64748B" />
           <Text style={styles.mapErrorText}>{mapError}</Text>

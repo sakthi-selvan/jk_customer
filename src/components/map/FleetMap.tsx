@@ -54,9 +54,37 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   const [localFilter, setLocalFilter] = useState<FleetCategory>('all');
   const [drivers, setDrivers] = useState<NearbyDriverPin[]>([]);
   const [mapError, setMapError] = useState<string | null>(
-    mapboxTokenPresent() ? null : 'Map token missing in this build'
+    mapboxTokenPresent() ? null : 'Loading map…'
   );
+  const [mapReady, setMapReady] = useState(mapboxTokenPresent());
   const filter = controlledFilter ?? localFilter;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (mapboxTokenPresent()) {
+        initMapbox();
+        if (!cancelled) setMapReady(true);
+        return;
+      }
+      try {
+        const { ensureMapboxTokenAfterAuth } = await import('../../services/mapboxAuth');
+        const ok = await ensureMapboxTokenAfterAuth();
+        if (cancelled) return;
+        if (ok) {
+          setMapReady(true);
+          setMapError(null);
+        } else {
+          setMapError('Map is unavailable. Check connection and try again.');
+        }
+      } catch {
+        if (!cancelled) setMapError('Map is unavailable. Check connection and try again.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setFilter = (next: FleetCategory) => {
     if (onVehicleFilterChange) onVehicleFilterChange(next);
@@ -98,6 +126,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
 
   return (
     <View style={styles.container}>
+      {mapReady ? (
       <MapView
         style={styles.map}
         styleURL={MAP_STYLES.STREETS}
@@ -131,8 +160,14 @@ export const FleetMap: React.FC<FleetMapProps> = ({
           </MarkerView>
         ))}
       </MapView>
+      ) : (
+        <View style={[styles.map, styles.mapError]}>
+          <Ionicons name="map-outline" size={28} color="#64748B" />
+          <Text style={styles.mapErrorText}>{mapError || 'Loading map…'}</Text>
+        </View>
+      )}
 
-      {mapError ? (
+      {mapError && mapReady ? (
         <View style={styles.mapError} pointerEvents="none">
           <Ionicons name="map-outline" size={28} color="#64748B" />
           <Text style={styles.mapErrorText}>{mapError}</Text>
