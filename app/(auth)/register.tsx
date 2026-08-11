@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xl,
   },
-  logo: { width: 220, height: 100, marginBottom: Spacing.sm },
+  logo: { width: '78%', maxWidth: 280, aspectRatio: 1024 / 469, marginBottom: Spacing.sm },
   title: {
     fontSize: FontSizes.xxxl,
     fontWeight: FontWeights.bold,

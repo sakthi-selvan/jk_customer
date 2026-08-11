@@ -108,8 +108,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   bootLogo: {
-    width: 280,
-    height: 140,
+    width: '82%',
+    maxWidth: 340,
+    aspectRatio: 1024 / 469,
   },
   bootTitle: {
     marginTop: 20,

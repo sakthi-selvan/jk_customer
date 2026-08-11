@@ -207,8 +207,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   logo: {
-    width: 260,
-    height: 120,
+    width: '82%',
+    maxWidth: 320,
+    aspectRatio: 1024 / 469,
     marginBottom: Spacing.md,
   },
   subtitle: {

@@ -67,12 +67,14 @@ export default {
         "expo-splash-screen",
         {
           image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
+          // Android 12+ shows this in a circular mask — asset already has padding;
+          // keep width moderate so the full wide logo stays inside the circle.
+          imageWidth: 288,
           resizeMode: "contain",
           backgroundColor: "#0B3A8A",
           dark: {
             image: "./assets/images/splash-icon.png",
-            imageWidth: 200,
+            imageWidth: 288,
             resizeMode: "contain",
             backgroundColor: "#0B3A8A",
           },
