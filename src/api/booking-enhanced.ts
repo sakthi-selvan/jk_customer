@@ -122,30 +122,6 @@ export const bookingEnhancedApi = {
     return response.data;
   },
 
-  // Create Razorpay order for a ride
-  createPaymentOrder: async (rideId: string): Promise<{
-    order_id: string;
-    amount: number;
-    currency: string;
-    key_id: string;
-  }> => {
-    const response = await apiClient.post(`/api/v2/bookings/${rideId}/payment/create-order`);
-    return response.data;
-  },
-
-  // Verify Razorpay payment
-  verifyPayment: async (rideId: string, data: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
-  }): Promise<{ message: string; transaction_id: string }> => {
-    const response = await apiClient.post(`/api/v2/bookings/${rideId}/payment/verify`, {
-      ride_id: rideId,
-      ...data,
-    });
-    return response.data;
-  },
-
   submitRating: async (rideId: string, rating: number, comment?: string) => {
     const response = await apiClient.post(`/api/v2/safety/rides/${rideId}/rating`, {
       rating,

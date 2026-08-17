@@ -466,7 +466,7 @@ export default function BookRideScreen() {
         passenger_phone: bookingForSelf ? undefined : passengerPhone,
         preferences,
         driver_notes: driverNotes || undefined,
-        payment_method: paymentMethod,
+        payment_method: 'cash',
         stops: [],
         ...(tripType === TripType.RENTAL ? { rental_hours: rentalHours } : {}),
       };
@@ -801,7 +801,7 @@ export default function BookRideScreen() {
 
           <TouchableOpacity style={styles.optionChip} onPress={() => setShowOptions(true)}>
             <Ionicons name="cash-outline" size={16} color="#666" />
-            <Text style={styles.optionChipText}>{paymentMethod === 'cash' ? 'Cash' : paymentMethod.toUpperCase()}</Text>
+            <Text style={styles.optionChipText}>Cash</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.optionChip} onPress={() => setShowOptions(true)}>
@@ -886,16 +886,10 @@ export default function BookRideScreen() {
             <View style={styles.optionSection}>
               <Text style={styles.optionSectionTitle}>Payment</Text>
               <View style={styles.paymentRow}>
-                {['cash', 'upi', 'card'].map((m) => (
-                  <TouchableOpacity key={m} style={[styles.paymentChip, paymentMethod === m && styles.paymentChipActive]}
-                    onPress={() => setPaymentMethod(m)}>
-                    <Ionicons name={m === 'cash' ? 'cash' : m === 'upi' ? 'phone-portrait' : 'card'} size={18}
-                      color={paymentMethod === m ? Colors.primary : '#666'} />
-                    <Text style={[styles.paymentChipText, paymentMethod === m && styles.paymentChipTextActive]}>
-                      {m.charAt(0).toUpperCase() + m.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                <View style={[styles.paymentChip, styles.paymentChipActive]}>
+                  <Ionicons name="cash" size={18} color={Colors.primary} />
+                  <Text style={[styles.paymentChipText, styles.paymentChipTextActive]}>Cash</Text>
+                </View>
               </View>
             </View>
 
