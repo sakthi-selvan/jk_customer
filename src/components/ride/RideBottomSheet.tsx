@@ -191,10 +191,14 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
     }
   }, [ride.status, nearbyCountOverride]);
 
-  // Show rating on completion
+  // Show rating on completion (once per ride)
   useEffect(() => {
-    if (ride.status === 'completed') setShowRating(true);
-  }, [ride.status]);
+    if (ride.status === 'completed' && !ride.customer_rating) {
+      setShowRating(true);
+    } else {
+      setShowRating(false);
+    }
+  }, [ride.status, ride.customer_rating]);
 
   const fetchNearby = async () => {
     try {
@@ -288,8 +292,14 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
     if (rating === 0) { Alert.alert('Required', 'Please select a rating.'); return; }
     try {
       await bookingEnhancedApi.submitRating(ride.id, rating);
+      setShowRating(false);
       Alert.alert('Thank You!', 'Your rating was saved.', [{ text: 'OK', onPress: onRideComplete }]);
     } catch (e: any) {
+      if (e.response?.status === 409) {
+        setShowRating(false);
+        Alert.alert('Already Rated', 'You have already rated this ride.', [{ text: 'OK', onPress: onRideComplete }]);
+        return;
+      }
       Alert.alert('Failed', formatApiError(e, 'Could not submit rating'));
     }
   };

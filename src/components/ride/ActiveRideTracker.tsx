@@ -80,14 +80,38 @@ export const ActiveRideTracker: React.FC<ActiveRideTrackerProps> = ({ ride, onRi
   const vehicleNumber = (ride as any).driver_vehicle_number || ride.driver?.vehicle_number || '—';
   const vehicleType = (ride as any).driver_vehicle_type || ride.driver?.vehicle_type || ride.vehicle_category || '—';
 
-  // Show rating after completion
+  // Show rating after completion (once per ride)
   useEffect(() => {
-    if ((ride.status === 'completed' || ride.status === 'cancelled') && ride.driver_id) {
-      if (ride.status === 'completed' || (ride.status === 'cancelled' && ride.otp_verified)) {
-        setShowRating(true);
-      }
+    if (ride.status === 'completed' && ride.driver_id && !ride.customer_rating) {
+      setShowRating(true);
+    } else {
+      setShowRating(false);
     }
-  }, [ride.status]);
+  }, [ride.status, ride.driver_id, ride.customer_rating]);
+
+  const handleSubmitRating = async () => {
+    if (rating === 0) {
+      Alert.alert('Rating Required', 'Please select a star rating before submitting.');
+      return;
+    }
+
+    try {
+      await bookingEnhancedApi.submitRating(ride.id, rating, ratingComment || undefined);
+      setShowRating(false);
+      Alert.alert('Thank You!', 'Your rating has been submitted successfully.', [
+        { text: 'OK', onPress: onRideComplete },
+      ]);
+    } catch (error: any) {
+      if (error.response?.status === 409) {
+        setShowRating(false);
+        Alert.alert('Already Rated', 'You have already rated this ride.', [
+          { text: 'OK', onPress: onRideComplete },
+        ]);
+        return;
+      }
+      Alert.alert('Failed', formatApiError(error, 'Could not submit rating'));
+    }
+  };
 
   const handleCancel = () => {
     Alert.alert(
@@ -158,19 +182,6 @@ export const ActiveRideTracker: React.FC<ActiveRideTrackerProps> = ({ ride, onRi
           },
         },
       ]
-    );
-  };
-
-  const handleSubmitRating = () => {
-    if (rating === 0) {
-      Alert.alert('Rating Required', 'Please select a star rating before submitting.');
-      return;
-    }
-
-    Alert.alert(
-      'Thank You!',
-      'Your rating has been submitted successfully.',
-      [{ text: 'OK', onPress: () => setShowRating(false) }]
     );
   };
 

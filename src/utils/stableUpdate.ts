@@ -18,6 +18,7 @@ export function rideUiKey(ride: any): string {
     ride.driver_vehicle_type,
     ride.driver_total_rides,
     ride.driver_average_rating,
+    ride.customer_rating,
     ride.rejection_count,
     ride.updated_at,
   ].join('|');

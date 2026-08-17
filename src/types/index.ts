@@ -57,6 +57,7 @@ export interface Ride {
   payment_status: PaymentStatus;
   payment_method: string;
   transaction_id?: string;
+  customer_rating?: number | null;
   created_at: string;
   updated_at: string;
 }

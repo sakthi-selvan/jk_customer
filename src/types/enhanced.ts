@@ -111,6 +111,7 @@ export interface EnhancedRide {
   driver_total_rides?: number;
   driver_average_rating?: number | null;
   driver_rating_count?: number;
+  customer_rating?: number | null;
   rejection_count?: number;
   created_at: string;
   updated_at: string;

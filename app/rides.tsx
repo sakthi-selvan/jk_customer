@@ -58,6 +58,7 @@ export default function RidesScreen() {
   const { user } = useAuthStore();
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [ratingRideId, setRatingRideId] = useState<string | null>(null);
+  const [ratedRideIds, setRatedRideIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -157,17 +158,34 @@ export default function RidesScreen() {
     try {
       const { bookingEnhancedApi } = await import('../src/api/booking-enhanced');
       await bookingEnhancedApi.submitRating(ratingRideId, rating, comment);
+      setRatedRideIds((prev) => new Set(prev).add(ratingRideId));
+      setRatingModalVisible(false);
+      setRatingRideId(null);
+      await loadRideHistory({ silent: true });
       Alert.alert('Thank You!', 'Your rating has been submitted successfully');
     } catch (error: any) {
+      if (error.response?.status === 409) {
+        setRatedRideIds((prev) => new Set(prev).add(ratingRideId));
+        setRatingModalVisible(false);
+        setRatingRideId(null);
+        Alert.alert('Already Rated', 'You have already rated this ride.');
+        return;
+      }
       Alert.alert('Failed', formatApiError(error, 'Could not submit rating'));
       throw error;
     }
   };
 
+  const isRideRated = (ride: Ride) =>
+    Boolean((ride as Ride & { customer_rating?: number | null }).customer_rating) ||
+    ratedRideIds.has(ride.id);
+
   const showRatingPrompt = (ride: Ride) => {
-    if (ride.status === 'completed') {
+    if (ride.status === 'completed' && !isRideRated(ride)) {
       setRatingRideId(ride.id);
       setRatingModalVisible(true);
+    } else if (isRideRated(ride)) {
+      Alert.alert('Already Rated', 'You have already rated this ride.');
     }
   };
 
@@ -298,7 +316,7 @@ export default function RidesScreen() {
           </TouchableOpacity>
         )}
 
-        {ride.status === 'completed' && (
+        {ride.status === 'completed' && !isRideRated(ride) && (
           <TouchableOpacity
             style={styles.rateButton}
             onPress={() => showRatingPrompt(ride)}
@@ -306,6 +324,17 @@ export default function RidesScreen() {
             <Ionicons name="star-outline" size={18} color="#F59E0B" />
             <Text style={[styles.actionButtonText, { color: '#F59E0B' }]}>Rate This Ride</Text>
           </TouchableOpacity>
+        )}
+
+        {ride.status === 'completed' && isRideRated(ride) && (
+          <View style={styles.ratedBadge}>
+            <Ionicons name="star" size={18} color="#F59E0B" />
+            <Text style={[styles.actionButtonText, { color: '#92400E' }]}>
+              Rated{(ride as Ride & { customer_rating?: number }).customer_rating
+                ? ` · ${(ride as Ride & { customer_rating?: number }).customer_rating}★`
+                : ''}
+            </Text>
+          </View>
         )}
       </View>
     );
@@ -580,6 +609,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FEF3C7',
     backgroundColor: '#FEF3C7',
+    marginTop: Spacing.sm,
+  },
+  ratedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    backgroundColor: '#FFFBEB',
     marginTop: Spacing.sm,
   },
   emptyCard: {
