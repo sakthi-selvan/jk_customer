@@ -105,7 +105,6 @@ export default function BookRideScreen() {
   const [bookingForSelf, setBookingForSelf] = useState(true);
   const [passengerName, setPassengerName] = useState('');
   const [passengerPhone, setPassengerPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
   const [preferences, setPreferences] = useState<RidePreferences>({
     ac_preferred: false, pet_friendly: false, silent_ride: false,
     extra_luggage: false, wheelchair_support: false, women_driver: false,
