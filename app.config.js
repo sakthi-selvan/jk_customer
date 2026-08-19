@@ -9,9 +9,9 @@ export default {
     userInterfaceStyle: "light",
     newArchEnabled: true,
     splash: {
-      image: "./assets/images/splash-icon.png",
+      image: "./assets/images/jk_taxi_logo.png",
       resizeMode: "contain",
-      backgroundColor: "#0B3A8A",
+      backgroundColor: "#FFFFFF",
     },
     ios: {
       supportsTablet: true,
@@ -33,7 +33,7 @@ export default {
       versionCode: 1,
       adaptiveIcon: {
         foregroundImage: "./assets/images/android-icon-foreground.png",
-        backgroundColor: "#0B3A8A",
+        backgroundColor: "#FFFFFF",
       },
       permissions: [
         "ACCESS_COARSE_LOCATION",
@@ -66,17 +66,17 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash-icon.png",
+          image: "./assets/images/jk_taxi_logo.png",
           // Android 12+ shows this in a circular mask — asset already has padding;
           // keep width moderate so the full wide logo stays inside the circle.
           imageWidth: 288,
           resizeMode: "contain",
-          backgroundColor: "#0B3A8A",
+          backgroundColor: "#FFFFFF",
           dark: {
-            image: "./assets/images/splash-icon.png",
+            image: "./assets/images/jk_taxi_logo.png",
             imageWidth: 288,
             resizeMode: "contain",
-            backgroundColor: "#0B3A8A",
+            backgroundColor: "#FFFFFF",
           },
         },
       ],
