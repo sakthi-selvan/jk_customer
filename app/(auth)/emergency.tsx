@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
@@ -15,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 import { Button } from '../../src/components/common/Button';
 import { Input } from '../../src/components/common/Input';
-import { Card } from '../../src/components/common/Card';
 import { Colors, Spacing, FontSizes, FontWeights } from '../../src/constants/theme';
 import { validatePhone, validateName } from '../../src/utils/validation';
 
@@ -65,32 +65,52 @@ export default function EmergencyContactScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.progressRow}>
-            <View style={[styles.progressDot, styles.progressDotDone]} />
-            <View style={[styles.progressLine, styles.progressLineActive]} />
-            <View style={[styles.progressDot, styles.progressDotActive]} />
-          </View>
-          <Text style={styles.stepLabel}>Step 2 of 2</Text>
-
-          <View style={styles.header}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="shield-checkmark" size={28} color={Colors.error} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            <View style={styles.topBar}>
+              <View style={styles.logoFrame}>
+                <Image
+                  source={require('../../assets/images/splash.png')}
+                  style={styles.logo}
+                  resizeMode="cover"
+                  accessibilityLabel="JK Taxi"
+                />
+              </View>
+              <View style={styles.stepCopy}>
+                <Text style={styles.stepEyebrow}>CREATE YOUR ACCOUNT</Text>
+                <Text style={styles.stepLabel}>Step 2 of 2</Text>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={styles.progressTrackFill} />
+              </View>
             </View>
-            <Text style={styles.title}>Emergency contact</Text>
-            <Text style={styles.subtitle}>
-              Optional — used for SOS alerts during rides. You can skip and add this later.
-            </Text>
-          </View>
 
-          <Card elevated style={styles.formCard}>
+            <View style={styles.header}>
+              <View style={styles.headingRow}>
+                <View style={styles.iconWrap}>
+                  <Ionicons name="shield-checkmark" size={22} color={Colors.primary} />
+                </View>
+                <View style={styles.headingCopy}>
+                  <Text style={styles.title}>Emergency contact</Text>
+                  <Text style={styles.optionalLabel}>Optional</Text>
+                </View>
+              </View>
+              <Text style={styles.subtitle}>
+                Add someone we can contact if you need help during a ride. You can skip this and add it later.
+              </Text>
+            </View>
+
             <Input
-              label="Contact Name"
+              label="Contact name"
               placeholder="Enter emergency contact name"
               value={emergencyContactName}
               onChangeText={setEmergencyContactName}
@@ -99,7 +119,7 @@ export default function EmergencyContactScreen() {
             />
 
             <Input
-              label="Contact Phone"
+              label="Contact phone"
               placeholder="Enter 10-digit phone number"
               value={emergencyContactPhone}
               onChangeText={setEmergencyContactPhone}
@@ -112,7 +132,7 @@ export default function EmergencyContactScreen() {
             {error && <Text style={styles.errorText}>{error}</Text>}
 
             <Button
-              title="Save & Continue"
+              title="Add contact and continue"
               onPress={() => saveProfile(true)}
               loading={isLoading}
               fullWidth
@@ -120,14 +140,14 @@ export default function EmergencyContactScreen() {
             />
 
             <Button
-              title="Skip for now"
+              title="Skip this step"
               onPress={() => saveProfile(false)}
               loading={isLoading}
               variant="ghost"
               fullWidth
               style={styles.skipButton}
             />
-          </Card>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -137,69 +157,47 @@ export default function EmergencyContactScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   keyboardView: { flex: 1 },
-  scrollContent: { flexGrow: 1, padding: Spacing.lg },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#D1D5DB',
-  },
-  progressDotActive: { backgroundColor: Colors.primary },
-  progressDotDone: { backgroundColor: Colors.primary },
-  progressLine: {
-    width: 48,
-    height: 2,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 8,
-  },
-  progressLineActive: { backgroundColor: Colors.primary },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+  content: { width: '100%', maxWidth: 460, alignSelf: 'center' },
+  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xl },
+  logoFrame: { width: 58, height: 58, borderRadius: 12, overflow: 'hidden', backgroundColor: Colors.primary },
+  logo: { width: '100%', height: '100%' },
+  stepCopy: { marginLeft: Spacing.md },
+  stepEyebrow: { color: Colors.primary, fontSize: FontSizes.xs, fontWeight: FontWeights.bold, marginBottom: 3 },
+  progressTrack: { flex: 1, height: 4, marginLeft: Spacing.md, borderRadius: 2, backgroundColor: Colors.border, overflow: 'hidden' },
+  progressTrackFill: { width: '100%', height: '100%', borderRadius: 2, backgroundColor: Colors.primary },
+  headingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
+  headingCopy: { flex: 1, marginLeft: Spacing.md },
+  optionalLabel: { color: Colors.textSecondary, fontSize: FontSizes.xs, marginTop: 2 },
   stepLabel: {
-    textAlign: 'center',
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
-    fontWeight: FontWeights.semibold,
-    marginBottom: Spacing.md,
+    fontWeight: FontWeights.medium,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-  },
+  header: { marginBottom: Spacing.lg },
   iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#FEE2E2',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(44, 2, 103, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.md,
   },
   title: {
-    fontSize: FontSizes.xxxl,
+    fontSize: FontSizes.xl,
     fontWeight: FontWeights.bold,
-    color: Colors.text,
-    marginBottom: Spacing.xs,
+    color: Colors.ink,
   },
   subtitle: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.sm,
     color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: Spacing.sm,
+    lineHeight: 20,
   },
-  formCard: { marginBottom: Spacing.lg },
   errorText: {
     color: Colors.error,
     fontSize: FontSizes.sm,
-    textAlign: 'center',
     marginBottom: Spacing.sm,
   },
   submitButton: { marginTop: Spacing.md },
-  skipButton: { marginTop: Spacing.xs },
+  skipButton: { marginTop: Spacing.xs, marginBottom: Spacing.sm },
 });

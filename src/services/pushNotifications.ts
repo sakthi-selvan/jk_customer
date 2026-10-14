@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -41,7 +42,7 @@ export class PushNotificationService {
       if (token) {
         this.expoPushToken = token;
         await AsyncStorage.setItem('push_token', token);
-        console.log('Push notification token:', token);
+        if (__DEV__) console.log('Push notifications registered');
       }
 
       return token;
@@ -58,26 +59,6 @@ export class PushNotificationService {
     }
 
     try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        console.log('Failed to get push notification permission');
-        return null;
-      }
-
-      // Get the Expo push token
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: 'jk-taxi-customer', // Should match app.json extra.eas.projectId
-      });
-
-      const token = tokenData.data;
-
       // Configure Android notification channel
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
@@ -104,6 +85,28 @@ export class PushNotificationService {
           sound: 'default',
         });
       }
+
+
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('Failed to get push notification permission');
+        return null;
+      }
+
+      // Get the Expo push token
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId
+      });
+
+      const token = tokenData.data;
+
 
       return token;
     } catch (error) {

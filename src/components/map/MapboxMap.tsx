@@ -1,19 +1,11 @@
+import { initMapbox, mapboxTokenPresent } from '../../config/initMapbox';
 import React, { useRef, useEffect, useState } from 'react';
-import { StyleSheet, View, Alert } from 'react-native';
+import { StyleSheet, View, Text, Alert } from 'react-native';
 import Mapbox, { Camera, MapView, ShapeSource, CircleLayer, UserLocation } from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE_URL } from '../../config/mapbox';
 
 // Initialize Mapbox
-try {
-  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
-} catch (error) {
-  console.error('Failed to set Mapbox token:', error);
-  Alert.alert(
-    'Map Configuration Error',
-    `Failed to initialize map: ${error instanceof Error ? error.message : 'Unknown error'}\n\nToken: ${MAPBOX_ACCESS_TOKEN.substring(0, 20)}...`,
-    [{ text: 'OK' }]
-  );
-}
+initMapbox();
 
 interface MapboxMapProps {
   latitude: number;
@@ -51,7 +43,7 @@ export const MapboxMap: React.FC<MapboxMapProps> = ({
       setHasShownError(true);
       Alert.alert(
         'Map Loading Error',
-        `Failed to load map tiles.\n\nError: ${error?.message || 'Unknown error'}\n\nToken status: ${MAPBOX_ACCESS_TOKEN ? 'Set' : 'Missing'}\nToken preview: ${MAPBOX_ACCESS_TOKEN.substring(0, 15)}...`,
+        'The map could not load. Check your internet connection and try again.',
         [{ text: 'OK' }]
       );
     }
@@ -69,6 +61,8 @@ export const MapboxMap: React.FC<MapboxMapProps> = ({
     },
   };
 
+  if (!mapboxTokenPresent()) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text>Map unavailable. Please try again shortly.</Text></View>;
+
   return (
     <View style={styles.container}>
       <MapView
@@ -77,7 +71,7 @@ export const MapboxMap: React.FC<MapboxMapProps> = ({
         compassEnabled={false}
         scaleBarEnabled={false}
         surfaceView={false}
-        onDidFailLoadingMap={handleMapError}
+        onDidFailLoadingMap={() => handleMapError(new Error("Map unavailable"))}
       >
         <Camera
           ref={cameraRef}

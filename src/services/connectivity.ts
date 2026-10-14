@@ -26,7 +26,7 @@ class ConnectivityMonitor {
   subscribe(fn: Listener) {
     this.listeners.add(fn);
     fn(this.online);
-    return () => this.listeners.delete(fn);
+    return () => { this.listeners.delete(fn); };
   }
 
   isOnline() {
@@ -55,15 +55,17 @@ class ConnectivityMonitor {
   }
 
   private async ping() {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 4000);
       const res = await fetch(`${API_CONFIG.BASE_URL}/health`, { signal: ctrl.signal });
       clearTimeout(t);
       // Got a response → server is reachable regardless of status code
       if (res) this.noteReachable();
     } catch {
       this.noteUnreachable();
+    } finally {
+      clearTimeout(t);
     }
   }
 }

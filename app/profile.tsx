@@ -152,8 +152,8 @@ export default function ProfileScreen() {
               title="Edit Profile"
               subtitle="Name, Age, Gender, Email, Emergency Contact"
               onPress={() => router.push('/edit-profile')}
-              iconColor="#8B5CF6"
-              iconBg="#F3E8FF"
+              iconColor={Colors.primary}
+              iconBg={Colors.primarySoft}
             />
 
             <View style={styles.menuDivider} />
@@ -164,7 +164,7 @@ export default function ProfileScreen() {
               subtitle="Searching → accept → trip → drop (demo)"
               onPress={() => router.push('/ride-ui-preview')}
               iconColor={Colors.primary}
-              iconBg="#F3E8FF"
+              iconBg={Colors.primarySoft}
             />
 
             <View style={styles.menuDivider} />
@@ -230,8 +230,8 @@ export default function ProfileScreen() {
               title="Help Center"
               subtitle="FAQs, How-to guides"
               onPress={() => router.push('/help-center')}
-              iconColor="#8B5CF6"
-              iconBg="#F3E8FF"
+              iconColor={Colors.primary}
+              iconBg={Colors.primarySoft}
             />
 
             <View style={styles.menuDivider} />

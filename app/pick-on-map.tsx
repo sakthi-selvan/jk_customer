@@ -248,19 +248,21 @@ export default function PickOnMapScreen() {
     moveCamera(result.latitude, result.longitude, 16);
   };
 
-  const handleRegionIsChanging = () => {
+  const handleCameraChanged = (state: any) => {
     if (!mapReady || isProgrammaticMove.current) return;
-    setIsMapMoving(true);
-    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    if (state?.gestures?.isGestureActive) {
+      setIsMapMoving(true);
+      if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    }
   };
 
-  const handleRegionDidChange = (feature: any) => {
+  const handleMapIdle = (state: any) => {
     if (!mapReady || isProgrammaticMove.current) return;
-    const [lng, lat] = feature.geometry.coordinates;
+    setIsMapMoving(false);
+    const [lng, lat] = state?.properties?.center || [];
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     centerRef.current = { latitude: lat, longitude: lng };
-    setIsMapMoving(false);
 
     if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
     // Soft loading indicator only — Confirm stays enabled once map has stopped
@@ -373,8 +375,8 @@ export default function PickOnMapScreen() {
           style={styles.map}
           styleURL="mapbox://styles/mapbox/streets-v12"
           surfaceView={MAP_SURFACE_VIEW}
-          onRegionIsChanging={handleRegionIsChanging}
-          onRegionDidChange={handleRegionDidChange}
+          onCameraChanged={handleCameraChanged}
+          onMapIdle={handleMapIdle}
           onDidFinishLoadingMap={() => setMapReady(true)}
         >
           <Mapbox.Camera

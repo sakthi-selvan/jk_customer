@@ -1,15 +1,15 @@
 /**
  * JK Taxi — light, feel-good mobility UI.
- * Soft surfaces + deep violet accent (not neon, not dark mode).
+ * Soft surfaces + JK Taxi brand accent.
  */
 export const Colors = {
-  // Brand — deep violet accent on light UI
-  primary: '#5B21B6',
-  primaryDark: '#4C1D95',
-  primaryMid: '#6D28D9',
-  primaryLight: '#7C3AED',
-  primarySoft: '#F3EEFF',
-  primaryMuted: '#E9E0FF',
+  // Brand accent
+  primary: '#2C0267',
+  primaryDark: '#2C0267',
+  primaryMid: '#2C0267',
+  primaryLight: '#2C0267',
+  primarySoft: '#F3F4F6',
+  primaryMuted: '#E5E7EB',
 
   // Light app chrome
   background: '#F7F7FB',

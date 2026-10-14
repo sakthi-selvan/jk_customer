@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useRideStore } from '../src/store/rideStore';
 import { useAuthStore } from '../src/store/authStore';
-import { Button } from '../src/components/common/Button';
 import { RatingModal } from '../src/components/RatingModal';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 import { Ride } from '../src/types';
@@ -60,6 +59,7 @@ export default function RidesScreen() {
   const [ratingRideId, setRatingRideId] = useState<string | null>(null);
   const [ratedRideIds, setRatedRideIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
 
   useEffect(() => {
     loadRides();
@@ -180,6 +180,10 @@ export default function RidesScreen() {
     Boolean((ride as Ride & { customer_rating?: number | null }).customer_rating) ||
     ratedRideIds.has(ride.id);
 
+  const filteredHistory = rideHistory.filter((ride) =>
+    historyFilter === 'all' || ride.status === historyFilter
+  );
+
   const showRatingPrompt = (ride: Ride) => {
     if (ride.status === 'completed' && !isRideRated(ride)) {
       setRatingRideId(ride.id);
@@ -199,8 +203,8 @@ export default function RidesScreen() {
       return;
     }
 
-    const driverName = ride.driver?.name || 'Driver';
-    const driverPhone = ride.driver?.phone || 'Not available';
+    const driverName = ride.driver_name || 'Driver';
+    const driverPhone = ride.driver_phone || 'Not available';
 
     Alert.alert(
       `Driver: ${driverName}`,
@@ -209,8 +213,8 @@ export default function RidesScreen() {
         {
           text: 'Call Driver',
           onPress: () => {
-            if (ride.driver?.phone) {
-              Linking.openURL(`tel:${ride.driver.phone}`).catch(() => {
+            if (ride.driver_phone) {
+              Linking.openURL(`tel:${ride.driver_phone}`).catch(() => {
                 Alert.alert('Error', 'Unable to make call. Please dial manually.');
               });
             } else {
@@ -226,21 +230,27 @@ export default function RidesScreen() {
   const RideCard = ({ ride }: { ride: Ride }) => {
     const statusConfig = STATUS_CONFIG[ride.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
     const isActive = ride.status === 'accepted' || ride.status === 'started';
+    const createdAt = new Date(ride.created_at);
+    const dateLabel = Number.isNaN(createdAt.getTime())
+      ? 'Date unavailable'
+      : createdAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const timeLabel = Number.isNaN(createdAt.getTime())
+      ? ''
+      : createdAt.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 
     return (
       <View style={styles.rideCard}>
-        {/* Header */}
         <View style={styles.rideHeader}>
-          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-            <Ionicons name={statusConfig.icon as any} size={16} color={statusConfig.color} />
-            <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {statusConfig.label}
-            </Text>
+          <View style={styles.rideDateBlock}>
+            <Text style={styles.rideDateText}>{dateLabel}</Text>
+            {!!timeLabel && <Text style={styles.rideTimeText}>{timeLabel}</Text>}
           </View>
-          <Text style={styles.rideFare}>₹{ride.fare.toFixed(0)}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+            <Ionicons name={statusConfig.icon as any} size={15} color={statusConfig.color} />
+            <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.label}</Text>
+          </View>
         </View>
 
-        {/* Locations */}
         <View style={styles.locationsContainer}>
           <View style={styles.locationDots}>
             <View style={styles.pickupDot} />
@@ -250,27 +260,31 @@ export default function RidesScreen() {
 
           <View style={styles.locations}>
             <View style={styles.locationRow}>
-              <Text style={styles.locationLabel}>Pickup</Text>
-              <Text style={styles.locationText} numberOfLines={1}>
+              <Text style={styles.locationLabel}>PICKUP</Text>
+              <Text style={styles.locationText} numberOfLines={2}>
                 {ride.pickup_location}
               </Text>
             </View>
 
             <View style={styles.locationRow}>
-              <Text style={styles.locationLabel}>Dropoff</Text>
-              <Text style={styles.locationText} numberOfLines={1}>
+              <Text style={styles.locationLabel}>DROP-OFF</Text>
+              <Text style={styles.locationText} numberOfLines={2}>
                 {ride.dropoff_location}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Date/Time */}
-        <View style={styles.dateTimeRow}>
-          <Ionicons name="calendar-outline" size={14} color="#666" />
-          <Text style={styles.dateTimeText}>
-            {new Date(ride.created_at).toLocaleDateString()} • {new Date(ride.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+        <View style={styles.rideFooter}>
+          <View>
+            <Text style={styles.fareCaption}>{ride.status === 'completed' ? 'Total fare' : 'Estimated fare'}</Text>
+            <Text style={styles.rideFare}>₹{ride.fare.toFixed(0)}</Text>
+          </View>
+          {ride.payment_status && (
+            <Text style={styles.paymentStatus}>
+              {ride.payment_status.replace(/_/g, ' ').toLowerCase()}
+            </Text>
+          )}
         </View>
 
         {/* Actions */}
@@ -389,25 +403,57 @@ export default function RidesScreen() {
 
         {/* Ride History */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="time-outline" size={20} color="#666" />
-            <Text style={styles.sectionTitle}>Ride History</Text>
+          <View style={styles.historyHeading}>
+            <View>
+              <Text style={styles.sectionTitle}>Ride history</Text>
+              <Text style={styles.historyCount}>
+                {rideHistory.length} {rideHistory.length === 1 ? 'ride' : 'rides'}
+              </Text>
+            </View>
           </View>
 
           {rideHistory.length > 0 ? (
-            rideHistory.map((ride) => <RideCard key={ride.id} ride={ride} />)
-          ) : (
-            <View style={styles.emptyCard}>
-              <View style={styles.emptyIconContainer}>
-                <Ionicons name="car-outline" size={56} color="#CCC" />
+            <>
+              <View style={styles.historyFilters}>
+                {(['all', 'completed', 'cancelled'] as const).map((filter) => {
+                  const selected = historyFilter === filter;
+                  const label = filter === 'all' ? 'All' : filter === 'completed' ? 'Completed' : 'Cancelled';
+                  return (
+                    <TouchableOpacity
+                      key={filter}
+                      style={[styles.historyFilter, selected && styles.historyFilterSelected]}
+                      onPress={() => setHistoryFilter(filter)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                    >
+                      <Text style={[styles.historyFilterText, selected && styles.historyFilterTextSelected]}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-              <Text style={styles.emptyText}>No rides yet</Text>
-              <Text style={styles.emptySubtext}>Book your first ride to get started</Text>
+              {filteredHistory.length > 0 ? (
+                filteredHistory.map((ride) => <RideCard key={ride.id} ride={ride} />)
+              ) : (
+                <View style={styles.filteredEmpty}>
+                  <Text style={styles.filteredEmptyText}>No {historyFilter} rides yet</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="receipt-outline" size={30} color={Colors.primary} />
+              </View>
+              <Text style={styles.emptyText}>Your rides will appear here</Text>
+              <Text style={styles.emptySubtext}>Once you book a ride, you can track it and review the details here.</Text>
               <TouchableOpacity
                 style={styles.bookButton}
                 onPress={() => router.push('/book-ride')}
+                accessibilityRole="button"
               >
-                <Text style={styles.bookButtonText}>Book a Ride</Text>
+                <Text style={styles.bookButtonText}>Book a ride</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -438,12 +484,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: Colors.border,
   },
   backButton: {
     width: 40,
@@ -452,9 +497,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
+    flex: 1,
     fontSize: FontSizes.xl,
     fontWeight: FontWeights.bold,
-    color: '#000',
+    color: Colors.ink,
+    marginLeft: Spacing.sm,
   },
   centerContent: {
     flex: 1,
@@ -465,7 +512,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xl,
   },
   section: {
     marginBottom: Spacing.lg,
@@ -476,98 +525,158 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionTitle: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
-    color: '#000',
+    color: Colors.ink,
     marginLeft: Spacing.xs,
   },
+  historyHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  historyCount: {
+    marginTop: 2,
+    fontSize: FontSizes.xs,
+    color: Colors.textSecondary,
+  },
+  historyFilters: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    marginBottom: Spacing.md,
+    borderRadius: 10,
+    backgroundColor: Colors.sheetAlt,
+  },
+  historyFilter: {
+    flex: 1,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xs,
+    borderRadius: 8,
+  },
+  historyFilterSelected: {
+    backgroundColor: Colors.primary,
+  },
+  historyFilterText: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textSecondary,
+  },
+  historyFilterTextSelected: {
+    color: Colors.white,
+  },
   rideCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   rideHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  rideDateBlock: { flex: 1 },
+  rideDateText: {
+    color: Colors.ink,
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+  },
+  rideTimeText: {
+    color: Colors.textSecondary,
+    fontSize: FontSizes.xs,
+    marginTop: 3,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: BorderRadius.sm,
+    flexShrink: 0,
   },
   statusText: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     fontWeight: FontWeights.semibold,
     marginLeft: 4,
   },
   rideFare: {
-    fontSize: FontSizes.xl,
+    fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
-    color: Colors.primary,
+    color: Colors.ink,
+  },
+  fareCaption: {
+    marginBottom: 2,
+    color: Colors.textSecondary,
+    fontSize: FontSizes.xs,
+  },
+  rideFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.sm,
+    marginTop: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  paymentStatus: {
+    color: Colors.textSecondary,
+    fontSize: FontSizes.xs,
+    textTransform: 'capitalize',
   },
   locationsContainer: {
     flexDirection: 'row',
     marginBottom: Spacing.sm,
   },
   locationDots: {
-    width: 20,
+    width: 16,
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: 5,
+    paddingBottom: 6,
   },
   pickupDot: {
-    width: 10,
-    height: 10,
+    width: 9,
+    height: 9,
     borderRadius: 5,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0D9488',
   },
   dashedLine: {
-    width: 2,
+    width: 1,
     flex: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 4,
+    backgroundColor: Colors.borderDark,
+    marginVertical: 3,
   },
   dropoffDot: {
-    width: 10,
-    height: 10,
+    width: 9,
+    height: 9,
     borderRadius: 5,
-    backgroundColor: '#F44336',
+    backgroundColor: '#E11D48',
   },
   locations: {
     flex: 1,
     marginLeft: Spacing.sm,
   },
   locationRow: {
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   locationLabel: {
-    fontSize: FontSizes.xs,
-    color: '#666',
+    fontSize: 10,
+    color: Colors.textMuted,
+    fontWeight: FontWeights.bold,
     marginBottom: 2,
   },
   locationText: {
     fontSize: FontSizes.sm,
-    color: '#000',
+    color: Colors.ink,
     fontWeight: FontWeights.medium,
-  },
-  dateTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  dateTimeText: {
-    fontSize: FontSizes.xs,
-    color: '#666',
-    marginLeft: 4,
+    lineHeight: 19,
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -623,36 +732,49 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xxl,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xl,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.xl,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  filteredEmpty: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+  },
+  filteredEmptyText: {
+    color: Colors.textSecondary,
+    fontSize: FontSizes.sm,
   },
   emptyIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F8F9FA',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   emptyText: {
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
     fontWeight: FontWeights.bold,
-    color: '#000',
+    color: Colors.ink,
     marginBottom: Spacing.xs,
   },
   emptySubtext: {
     fontSize: FontSizes.sm,
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: Spacing.lg,
     textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 260,
   },
   bookButton: {
     backgroundColor: Colors.primary,

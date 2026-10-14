@@ -66,6 +66,7 @@ export default function BookRideEnhancedScreen() {
     silent_ride: false,
     extra_luggage: false,
     wheelchair_support: false,
+    women_driver: false,
   });
 
   // Loading states
@@ -115,6 +116,17 @@ export default function BookRideEnhancedScreen() {
       calculateFare();
     }
   }, [currentStep, selectedVehicle, tripType]);
+
+  const handleVehicleSelection = (vehicleName: VehicleCategory) => {
+    if (String(vehicleName) === 'bike') {
+      Alert.alert(
+        'Bike is unavailable',
+        'Currently this service is unavailable. Please choose one of the other services.'
+      );
+      return;
+    }
+    setSelectedVehicle(vehicleName);
+  };
 
   const validateStep = () => {
     switch (currentStep) {
@@ -247,7 +259,7 @@ export default function BookRideEnhancedScreen() {
 
   const renderTripTypeSelector = () => {
     const tripTypes = [
-      { value: TripType.ONE_WAY, label: 'One Way', icon: 'arrow-forward' },
+      { value: TripType.ONE_WAY, label: 'Local', icon: 'arrow-forward' },
       { value: TripType.RENTAL, label: 'Rental', icon: 'time' },
       { value: TripType.OUTSTATION, label: 'Outstation', icon: 'car' },
     ];
@@ -462,7 +474,7 @@ export default function BookRideEnhancedScreen() {
               styles.vehicleCard,
               selectedVehicle === vehicle.name && styles.vehicleCardActive,
             ]}
-            onPress={() => setSelectedVehicle(vehicle.name as VehicleCategory)}
+            onPress={() => handleVehicleSelection(vehicle.name as VehicleCategory)}
           >
             <View style={styles.vehicleHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: Spacing.sm }}>

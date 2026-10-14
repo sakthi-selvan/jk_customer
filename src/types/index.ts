@@ -43,6 +43,8 @@ export interface Location {
 }
 
 export interface Ride {
+  driver_name?: string;
+  driver_phone?: string;
   id: string;
   user_id: string;
   driver_id?: string;

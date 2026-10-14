@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 14.0.0"
+    "version": ">= 14.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -11,11 +12,7 @@
         "gradleCommand": ":app:assembleDebug",
         "buildType": "apk"
       },
-      "env": {
-        "MAPBOX_DOWNLOADS_TOKEN": "@MAPBOX_DOWNLOADS_TOKEN",
-        "RNMAPBOX_MAPS_DOWNLOAD_TOKEN": "@MAPBOX_DOWNLOADS_TOKEN",
-        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN": "@MAPBOX_PUBLIC_TOKEN"
-      }
+      "env": {}
     },
     "preview": {
       "distribution": "internal",
@@ -24,9 +21,6 @@
         "buildType": "apk"
       },
       "env": {
-        "MAPBOX_DOWNLOADS_TOKEN": "@MAPBOX_DOWNLOADS_TOKEN",
-        "RNMAPBOX_MAPS_DOWNLOAD_TOKEN": "@MAPBOX_DOWNLOADS_TOKEN",
-        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN": "@MAPBOX_PUBLIC_TOKEN",
         "EXPO_PUBLIC_API_URL": "https://api.jktaxitamilnadu.com",
         "EXPO_PUBLIC_ENVIRONMENT": "preview"
       }
@@ -37,12 +31,10 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "MAPBOX_DOWNLOADS_TOKEN": "@MAPBOX_DOWNLOADS_TOKEN",
-        "RNMAPBOX_MAPS_DOWNLOAD_TOKEN": "@MAPBOX_DOWNLOADS_TOKEN",
-        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN": "@MAPBOX_PUBLIC_TOKEN",
         "EXPO_PUBLIC_API_URL": "https://api.jktaxitamilnadu.com",
         "EXPO_PUBLIC_ENVIRONMENT": "production"
-      }
+      },
+      "autoIncrement": true
     }
   },
   "submit": {

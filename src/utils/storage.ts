@@ -126,7 +126,7 @@ export const clear = async (): Promise<void> => {
 export const getAllKeys = async (): Promise<string[]> => {
   if (isAsyncStorageAvailable) {
     try {
-      return await AsyncStorage.getAllKeys();
+      return [...await AsyncStorage.getAllKeys()];
     } catch {
       isAsyncStorageAvailable = false;
     }

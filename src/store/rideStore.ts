@@ -348,7 +348,7 @@ export const useRideStore = create<RideState>((set, get) => ({
           if (!sameRideUi(get().activeRide, refreshed)) {
             set({ activeRide: refreshed as any, lastStatusAt: Date.now() });
           }
-          if (refreshed.status === 'completed' || refreshed.status === 'cancelled') {
+          if (!refreshed || refreshed.status === 'completed' || refreshed.status === 'cancelled') {
             get().stopTracking();
             return;
           }

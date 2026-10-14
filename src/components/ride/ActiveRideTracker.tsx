@@ -51,7 +51,7 @@ export const ActiveRideTracker: React.FC<ActiveRideTrackerProps> = ({ ride, onRi
     started: {
       title: 'Trip Started',
       subtitle: 'Enjoy your ride',
-      color: '#8B5CF6',
+      color: Colors.primary,
       icon: 'car-sport',
     },
     completed: {
@@ -70,15 +70,15 @@ export const ActiveRideTracker: React.FC<ActiveRideTrackerProps> = ({ ride, onRi
 
   const currentStatus = STATUS_INFO[ride.status as keyof typeof STATUS_INFO] || STATUS_INFO.pending;
   const rejectionCount = ride.rejection_count ?? 0;
-  const driverName = (ride as any).driver_name || ride.driver?.name || 'Driver';
+  const driverName = ride.driver_name || 'Driver';
   const driverRating =
     ride.driver_average_rating != null
       ? ride.driver_average_rating.toFixed(1)
       : null;
   const driverTrips = ride.driver_total_rides ?? 0;
-  const driverPhone = (ride as any).driver_phone || ride.driver?.phone || null;
-  const vehicleNumber = (ride as any).driver_vehicle_number || ride.driver?.vehicle_number || '—';
-  const vehicleType = (ride as any).driver_vehicle_type || ride.driver?.vehicle_type || ride.vehicle_category || '—';
+  const driverPhone = ride.driver_phone || null;
+  const vehicleNumber = ride.driver_vehicle_number || '—';
+  const vehicleType = ride.driver_vehicle_type || ride.vehicle_category || '—';
 
   // Show rating after completion (once per ride)
   useEffect(() => {
@@ -196,7 +196,7 @@ export const ActiveRideTracker: React.FC<ActiveRideTrackerProps> = ({ ride, onRi
           {new Date(ride.scheduled_datetime!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
         <Text style={styles.scheduledInfo}>
-          We'll notify you 15 minutes before your scheduled time
+          Your scheduled pickup time is shown above
         </Text>
         <TouchableOpacity style={styles.viewDetailsButton} onPress={() => router.push('/rides')}>
           <Text style={styles.viewDetailsText}>View Details</Text>
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.medium,
   },
   otpContainer: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: Colors.primarySoft,
     padding: Spacing.lg,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.lg,
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
   },
   otpHint: {
     fontSize: FontSizes.xs,
-    color: '#7C3AED',
+    color: Colors.primary,
     textAlign: 'center',
   },
   fareContainer: {
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3E8FF',
+    backgroundColor: Colors.primarySoft,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,

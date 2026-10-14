@@ -114,3 +114,5 @@ const styles = StyleSheet.create({
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { fontSize: 12, color: '#334155', textTransform: 'capitalize' },
 });
+
+VehicleMarker.displayName = "VehicleMarker";

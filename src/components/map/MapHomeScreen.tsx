@@ -20,9 +20,10 @@ import { router, usePathname } from 'expo-router';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FleetMap } from './FleetMap';
-import { FleetCategory } from './VehicleMarker';
+import { FLEET_FILTERS, FleetCategory } from './VehicleMarker';
 import { RideTrackingMap } from './RideTrackingMap';
 import { RideBottomSheet } from '../ride/RideBottomSheet';
+import { VehicleCategoryImage } from '../ride/VehicleCategoryImage';
 import { useAuthStore } from '../../store/authStore';
 import { useRideStore } from '../../store/rideStore';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../constants/theme';
@@ -32,11 +33,11 @@ import { EnhancedRide, SavedPlaces } from '../../types/enhanced';
 import { navigateIfNeeded } from '../../utils/navigation';
 import { samePinList } from '../../utils/stableUpdate';
 
-const { width, height } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
+const MENU_DRAWER_WIDTH = Math.min(screenWidth * 0.88, 360);
 
 /** Floating location card sits below safe area; chips sit below the card. */
 const LOCATION_CARD_TOP = 12;
-const LOCATION_CARD_HEIGHT = 56;
 
 interface MapHomeScreenProps {
   onBookRide: () => void;
@@ -54,9 +55,19 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
     latitude: 12.9716,
     longitude: 77.5946,
   });
+  const mapViewportCenterRef = useRef(location);
   const [locationPermission, setLocationPermission] = useState<boolean | null>(null);
   const [locationName, setLocationName] = useState('Fetching location...');
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [isPickingPickup, setIsPickingPickup] = useState(false);
+  const [pickupMapCenter, setPickupMapCenter] = useState(location);
+  const [pickupMapName, setPickupMapName] = useState('');
+  const [pickupMapAddress, setPickupMapAddress] = useState('');
+  const [pickupMapAddressLoading, setPickupMapAddressLoading] = useState(false);
+  const [pickupMapMoving, setPickupMapMoving] = useState(false);
+  const [cameraRevision, setCameraRevision] = useState(0);
+  const pickupAddressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickupAddressRequestRef = useRef(0);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [recentDropoffs, setRecentDropoffs] = useState<Array<{ name: string; address: string; latitude: number; longitude: number }>>([]);
@@ -75,12 +86,98 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const [searchingNearbyPins, setSearchingNearbyPins] = useState<
     Array<{ id: string; latitude: number; longitude: number; category: string; heading?: number | null }>
   >([]);
-  const menuSlideAnim = useRef(new Animated.Value(-320)).current;
+  const menuSlideAnim = useRef(new Animated.Value(-MENU_DRAWER_WIDTH)).current;
 
   useEffect(() => {
     getUserLocation();
     fetchRecentAndSaved();
   }, []);
+
+  useEffect(() => () => {
+    if (pickupAddressDebounceRef.current) clearTimeout(pickupAddressDebounceRef.current);
+    pickupAddressRequestRef.current += 1;
+  }, []);
+
+  const resolvePickupAddress = async (latitude: number, longitude: number, requestId: number) => {
+    let name = 'Selected pickup';
+    let address = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+    try {
+      const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (place) {
+        name = [place.street || place.name, place.city].filter(Boolean).join(', ') || name;
+        address = [place.street, place.district, place.city, place.region].filter(Boolean).join(', ') || address;
+      }
+    } catch {
+      // Coordinates remain a valid pickup if reverse geocoding is unavailable.
+    }
+    if (requestId !== pickupAddressRequestRef.current) return;
+    setPickupMapName(name);
+    setPickupMapAddress(address);
+    setPickupMapAddressLoading(false);
+  };
+
+  const beginPickupSelection = () => {
+    const center = mapViewportCenterRef.current;
+    setPickupMapCenter(center);
+    setPickupMapName('');
+    setPickupMapAddress('');
+    setPickupMapMoving(false);
+    setIsPickingPickup(true);
+    setPickupMapAddressLoading(true);
+    const requestId = ++pickupAddressRequestRef.current;
+    void resolvePickupAddress(center.latitude, center.longitude, requestId);
+  };
+
+  const handlePickupMapRegionIsChanging = (feature: any) => {
+    if (!feature?.properties?.isUserInteraction) return;
+    pickupAddressRequestRef.current += 1;
+    if (pickupAddressDebounceRef.current) clearTimeout(pickupAddressDebounceRef.current);
+    setIsPickingPickup(true);
+    setPickupMapMoving(true);
+    setPickupMapAddressLoading(false);
+  };
+
+  const handlePickupMapRegionDidChange = (feature: any) => {
+    const coordinates = feature?.geometry?.coordinates;
+    const longitude = coordinates?.[0];
+    const latitude = coordinates?.[1];
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+    const center = { latitude, longitude };
+    mapViewportCenterRef.current = center;
+    if (!isPickingPickup) return;
+
+    setPickupMapCenter(center);
+    setPickupMapMoving(false);
+    setPickupMapAddressLoading(true);
+    if (pickupAddressDebounceRef.current) clearTimeout(pickupAddressDebounceRef.current);
+    const requestId = ++pickupAddressRequestRef.current;
+    pickupAddressDebounceRef.current = setTimeout(() => {
+      void resolvePickupAddress(latitude, longitude, requestId);
+    }, 300);
+  };
+
+  const cancelPickupSelection = () => {
+    if (pickupAddressDebounceRef.current) clearTimeout(pickupAddressDebounceRef.current);
+    pickupAddressRequestRef.current += 1;
+    setIsPickingPickup(false);
+    setPickupMapMoving(false);
+    setCameraRevision((revision) => revision + 1);
+  };
+
+  const confirmPickupSelection = () => {
+    if (pickupMapMoving) return;
+    if (pickupAddressDebounceRef.current) clearTimeout(pickupAddressDebounceRef.current);
+    pickupAddressRequestRef.current += 1;
+    const name = pickupMapName || pickupMapAddress.split(',')[0] || 'Selected pickup';
+    const address = pickupMapAddress || `${pickupMapCenter.latitude.toFixed(5)}, ${pickupMapCenter.longitude.toFixed(5)}`;
+    mapViewportCenterRef.current = pickupMapCenter;
+    setLocation(pickupMapCenter);
+    setLocationName(name);
+    setUserLocation({ ...pickupMapCenter, name, address, pickType: 'pickup' });
+    setIsPickingPickup(false);
+    setPickupMapAddressLoading(false);
+  };
 
   // While searching, show real nearby captains on the tracking map (same UX as fleet map).
   useEffect(() => {
@@ -192,6 +289,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
       });
 
       const { latitude, longitude } = currentLocation.coords;
+      mapViewportCenterRef.current = { latitude, longitude };
       setLocation({ latitude, longitude });
 
       // Reverse geocode to get location name
@@ -269,8 +367,16 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   };
 
   const handleLocationSearchSelect = (item: { name: string; address: string; latitude: number; longitude: number }) => {
+    mapViewportCenterRef.current = { latitude: item.latitude, longitude: item.longitude };
     setLocation({ latitude: item.latitude, longitude: item.longitude });
     setLocationName(item.name || item.address.split(',')[0]);
+    setUserLocation({
+      latitude: item.latitude,
+      longitude: item.longitude,
+      name: item.name || item.address.split(',')[0],
+      address: item.address,
+      pickType: 'pickup',
+    });
     setShowLocationSearch(false);
     setSearchQuery('');
     setSearchResults([]);
@@ -292,7 +398,7 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   };
 
   const toggleMenu = () => {
-    const toValue = menuOpen ? -320 : 0;
+    const toValue = menuOpen ? -MENU_DRAWER_WIDTH : 0;
     Animated.spring(menuSlideAnim, {
       toValue,
       useNativeDriver: true,
@@ -333,7 +439,6 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
   const showActiveRideSheet = activeRide && ['pending', 'accepted', 'started'].includes(activeRide.status);
 
   const isTrackingRide = activeRide && ['pending', 'accepted', 'started'].includes(activeRide.status);
-  const fleetChipBarTop = LOCATION_CARD_TOP + LOCATION_CARD_HEIGHT + Spacing.sm;
 
   return (
     <View style={styles.container}>
@@ -368,11 +473,21 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
           latitude={location.latitude}
           longitude={location.longitude}
           zoom={14}
+          cameraRevision={cameraRevision}
           vehicleFilter={fleetFilter}
           onVehicleFilterChange={setFleetFilter}
-          showFilterChips
-          chipBarTop={fleetChipBarTop}
+          onRegionIsChanging={handlePickupMapRegionIsChanging}
+          onRegionDidChange={handlePickupMapRegionDidChange}
+          showFilterChips={false}
         />
+      )}
+
+      {!isTrackingRide && (
+        <View pointerEvents="none" style={[styles.pickupCenterOverlay, { top: insets.top }]}>
+          <View style={styles.pickupCenterMarker}>
+            <Ionicons name="location" size={44} color={Colors.primary} />
+          </View>
+        </View>
       )}
 
       {/* Floating Location Card */}
@@ -404,14 +519,12 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
 
           <TouchableOpacity
             style={styles.notificationButton}
-            onPress={getUserLocation}
-            disabled={isLoadingLocation}
+            onPress={isPickingPickup ? cancelPickupSelection : beginPickupSelection}
+            disabled={Boolean(isTrackingRide)}
+            accessibilityRole="button"
+            accessibilityLabel={isPickingPickup ? 'Cancel pickup selection' : 'Adjust pickup location on map'}
           >
-            <Ionicons
-              name={isLoadingLocation ? "refresh" : "navigate-circle-outline"}
-              size={22}
-              color={Colors.primary}
-            />
+            <Ionicons name={isPickingPickup ? 'close' : 'map-outline'} size={22} color={Colors.primary} />
           </TouchableOpacity>
         </Animated.View>
       </TouchableOpacity>
@@ -423,7 +536,23 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
           { transform: [{ translateX: menuSlideAnim }] },
         ]}
       >
-        <View style={styles.menuHeader}>
+        <View style={[styles.menuHeader, { paddingTop: insets.top + Spacing.md }]}>
+          <View style={styles.menuHeaderTop}>
+            <View style={styles.menuBrand}>
+              <View style={styles.menuBrandIcon}>
+                <Ionicons name="car-sport" size={20} color={Colors.primary} />
+              </View>
+              <Text style={styles.menuBrandName}>JK Taxi</Text>
+            </View>
+            <TouchableOpacity
+              onPress={toggleMenu}
+              style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Close menu"
+            >
+              <Ionicons name="close" size={22} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.menuHeaderContent}>
             <View style={styles.userAvatar}>
               <Text style={styles.userAvatarText}>
@@ -435,59 +564,58 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
               <Text style={styles.menuUserPhone}>{user?.phone || 'Not logged in'}</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={toggleMenu} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color={Colors.ink} />
-          </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.menuContent} showsVerticalScrollIndicator={false}>
           {user?.ride_otp && (
             <View style={styles.menuOtpCard}>
-              <View style={styles.otpHeader}>
-                <Ionicons name="shield-checkmark" size={18} color="#1976D2" />
-                <Text style={styles.menuOtpLabel}>Your Ride OTP</Text>
+              <View style={styles.menuOtpHeader}>
+                <View style={styles.menuOtpIcon}>
+                  <Ionicons name="shield-checkmark" size={18} color={Colors.primary} />
+                </View>
+                <View style={styles.menuOtpCopy}>
+                  <Text style={styles.menuOtpLabel}>Ride security code</Text>
+                  <Text style={styles.menuOtpHint}>Share with your captain to start</Text>
+                </View>
               </View>
-              <View style={styles.otpNumberContainer}>
+              <View style={styles.menuOtpNumberContainer}>
                 <Text style={styles.menuOtpNumber}>{user.ride_otp}</Text>
-              </View>
-              <View style={styles.otpFooter}>
-                <Ionicons name="information-circle" size={14} color="#1976D2" />
-                <Text style={styles.otpSubtext}>Share with driver to start ride</Text>
               </View>
             </View>
           )}
 
           <View style={styles.menuSection}>
+            <Text style={styles.menuSectionTitle}>Menu</Text>
             <TouchableOpacity style={styles.menuItem} onPress={() => go('/')}>
               <View style={styles.menuItemIconContainer}>
-                <Ionicons name="home" size={24} color={Colors.primary} />
+                <Ionicons name="home-outline" size={21} color={Colors.primary} />
               </View>
               <Text style={styles.menuItemText}>Home</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Ionicons name="chevron-forward" size={18} color={Colors.inkMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => go('/rides')}>
               <View style={styles.menuItemIconContainer}>
-                <Ionicons name="list" size={24} color={Colors.primary} />
+                <Ionicons name="receipt-outline" size={21} color={Colors.primary} />
               </View>
               <Text style={styles.menuItemText}>My Rides</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Ionicons name="chevron-forward" size={18} color={Colors.inkMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => go('/profile')}>
               <View style={styles.menuItemIconContainer}>
-                <Ionicons name="person" size={24} color={Colors.primary} />
+                <Ionicons name="person-outline" size={21} color={Colors.primary} />
               </View>
               <Text style={styles.menuItemText}>Profile</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Ionicons name="chevron-forward" size={18} color={Colors.inkMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => go('/ride-ui-preview')}>
               <View style={styles.menuItemIconContainer}>
-                <Ionicons name="play-circle" size={24} color={Colors.primary} />
+                <Ionicons name="play-circle-outline" size={21} color={Colors.primary} />
               </View>
               <Text style={styles.menuItemText}>Ride Preview</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Ionicons name="chevron-forward" size={18} color={Colors.inkMuted} />
             </TouchableOpacity>
           </View>
 
@@ -631,7 +759,42 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
       ) : (
         <View style={[styles.bottomCard, { paddingBottom: Math.max(insets.bottom, 8) + 4 }]}>
           <View style={styles.sheetHandle} />
-          {activeRide ? (
+          {isPickingPickup ? (
+            <>
+              <View style={styles.pickupSelectionRow}>
+                <View style={styles.pickupSelectionIcon}>
+                  {pickupMapAddressLoading ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <Ionicons name="location" size={20} color={Colors.primary} />
+                  )}
+                </View>
+                <View style={styles.pickupSelectionCopy}>
+                  <Text style={styles.pickupSelectionTitle}>Pickup point</Text>
+                  <Text style={styles.pickupSelectionAddress} numberOfLines={2}>
+                    {pickupMapMoving ? 'Move the map to adjust the pin' : pickupMapAddress || 'Finding address...'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.cancelPickupButton}
+                  onPress={cancelPickupSelection}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel pickup selection"
+                >
+                  <Ionicons name="close" size={22} color={Colors.inkSecondary} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[styles.pickupConfirmButton, pickupMapMoving && styles.pickupConfirmButtonDisabled]}
+                onPress={confirmPickupSelection}
+                disabled={pickupMapMoving}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm pickup location"
+              >
+                <Text style={styles.pickupConfirmText}>Set pickup location</Text>
+              </TouchableOpacity>
+            </>
+          ) : activeRide ? (
             <TouchableOpacity
               style={styles.activeRideCard}
               onPress={() => router.push('/rides')}
@@ -649,8 +812,41 @@ export const MapHomeScreen: React.FC<MapHomeScreenProps> = ({ onBookRide }) => {
             </TouchableOpacity>
           ) : (
             <>
-              <Text style={styles.bookingPrompt}>Where to?</Text>
-              <TouchableOpacity style={styles.searchBox} onPress={onBookRide} activeOpacity={0.85}>
+              <View style={styles.bookingHeading}><View><Text style={styles.bookingPrompt}>Where are you going?</Text><Text style={styles.bookingSubprompt}>Choose your destination to see ride options</Text></View><View style={styles.bookingBadge}><Ionicons name="car-outline" size={24} color={Colors.primary} /></View></View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.fleetCategoryRow}
+                style={styles.fleetCategoryScroll}
+              >
+                {FLEET_FILTERS.map((option) => {
+                  const selected = fleetFilter === option.id;
+                  return (
+                    <TouchableOpacity
+                      key={option.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Show ${option.label.toLowerCase()} drivers`}
+                      accessibilityState={{ selected }}
+                      style={[styles.fleetCategoryOption, selected && styles.fleetCategoryOptionSelected]}
+                      onPress={() => setFleetFilter(option.id)}
+                      activeOpacity={0.8}
+                    >
+                      <VehicleCategoryImage
+                        type={option.id}
+                        width={54}
+                        height={34}
+                        fallbackIcon={option.icon}
+                        fallbackColor={option.color}
+                        style={styles.fleetCategoryImage}
+                      />
+                      <Text style={[styles.fleetCategoryLabel, selected && styles.fleetCategoryLabelSelected]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose destination and book a ride" style={styles.searchBox} onPress={onBookRide} activeOpacity={0.85}>
                 <View style={styles.searchIconWrap}>
                   <Ionicons name="search" size={18} color={Colors.white} />
                 </View>
@@ -823,7 +1019,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: 320,
+    width: MENU_DRAWER_WIDTH,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 0 },
@@ -833,152 +1029,176 @@ const styles = StyleSheet.create({
     zIndex: 10000,
   },
   menuHeader: {
-    backgroundColor: Colors.primarySoft,
-    paddingTop: Platform.OS === 'ios' ? 56 : 44,
+    backgroundColor: Colors.primary,
     paddingBottom: Spacing.lg,
     paddingHorizontal: Spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+  },
+  menuHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 40,
+    marginBottom: Spacing.lg,
+  },
+  menuBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  menuBrandIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: Colors.white,
+  },
+  menuBrandName: {
+    color: Colors.white,
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.bold,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   menuHeaderContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    gap: Spacing.md,
   },
   userAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.md,
   },
   userAvatarText: {
-    fontSize: 24,
+    fontSize: FontSizes.xl,
     fontWeight: FontWeights.bold,
-    color: Colors.white,
+    color: Colors.primary,
   },
   userInfo: {
     flex: 1,
   },
   menuUserName: {
-    fontSize: FontSizes.xl,
+    fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
-    color: Colors.ink,
+    color: Colors.white,
     marginBottom: 4,
   },
   menuUserPhone: {
-    fontSize: FontSizes.md,
-    color: Colors.inkSecondary,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: Spacing.md,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: FontSizes.sm,
+    color: 'rgba(255,255,255,0.76)',
   },
   menuContent: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: Colors.background,
   },
   menuOtpCard: {
     margin: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: '#E3F2FD',
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
-    borderColor: '#1976D2',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  otpHeader: {
+  menuOtpHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  menuOtpIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.xs,
+    borderRadius: 10,
+    backgroundColor: Colors.primarySoft,
+  },
+  menuOtpCopy: { flex: 1 },
+  menuOtpHint: {
+    fontSize: FontSizes.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   menuOtpLabel: {
     fontSize: FontSizes.sm,
-    color: '#1976D2',
-    fontWeight: FontWeights.bold,
-    marginLeft: Spacing.xs,
-    textTransform: 'uppercase',
+    color: Colors.ink,
+    fontWeight: FontWeights.semibold,
   },
-  otpNumberContainer: {
-    backgroundColor: '#FFFFFF',
+  menuOtpNumberContainer: {
+    alignItems: 'center',
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    marginVertical: Spacing.xs,
-    borderWidth: 1.5,
-    borderColor: '#1976D2',
-    borderStyle: 'dashed',
+    borderRadius: 8,
+    backgroundColor: Colors.primarySoft,
   },
   menuOtpNumber: {
-    fontSize: 32,
+    fontSize: FontSizes.xl,
     fontWeight: FontWeights.bold,
-    color: '#1976D2',
-    letterSpacing: 10,
-    textAlign: 'center',
-  },
-  otpFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.xs,
-  },
-  otpSubtext: {
-    fontSize: FontSizes.xs,
-    color: '#1565C0',
-    textAlign: 'center',
-    marginLeft: Spacing.xs,
-    flex: 1,
+    color: Colors.primary,
+    letterSpacing: 6,
   },
   menuSection: {
     marginTop: Spacing.md,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: Spacing.md,
+  },
+  menuSectionTitle: {
+    marginHorizontal: Spacing.sm,
+    marginBottom: Spacing.xs,
+    color: Colors.textMuted,
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.bold,
+    textTransform: 'uppercase',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.lg,
-    backgroundColor: '#FFFFFF',
+    minHeight: 60,
+    paddingHorizontal: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: Colors.border,
   },
   menuItemIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F0F5FF',
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.md,
   },
   menuItemText: {
     flex: 1,
-    fontSize: FontSizes.md,
-    color: '#333333',
-    fontWeight: FontWeights.medium,
+    fontSize: FontSizes.sm,
+    color: Colors.ink,
+    fontWeight: FontWeights.semibold,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    margin: Spacing.lg,
-    padding: Spacing.md,
-    backgroundColor: '#FFF5F5',
-    borderRadius: BorderRadius.lg,
+    minHeight: 52,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: '#FFF7F7',
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: '#FFCDD2',
+    borderColor: '#FECACA',
   },
   logoutButtonText: {
-    fontSize: FontSizes.md,
-    color: '#E74C3C',
-    fontWeight: FontWeights.semibold,
+    flex: 1,
     marginLeft: Spacing.sm,
+    fontSize: FontSizes.sm,
+    color: Colors.error,
+    fontWeight: FontWeights.semibold,
   },
   overlay: {
     position: 'absolute',
@@ -1005,14 +1225,76 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  pickupCenterOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+  pickupCenterMarker: {
+    marginTop: -42,
+  },
+  pickupSelectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+    minHeight: 48,
+  },
+  pickupSelectionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primarySoft,
+  },
+  pickupSelectionCopy: {
+    flex: 1,
+  },
+  pickupSelectionTitle: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.semibold,
+    color: Colors.inkSecondary,
+    marginBottom: 2,
+  },
+  pickupSelectionAddress: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+    color: Colors.ink,
+  },
+  cancelPickupButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickupConfirmButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primary,
+  },
+  pickupConfirmButtonDisabled: {
+    opacity: 0.55,
+  },
+  pickupConfirmText: {
+    color: Colors.white,
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.bold,
+  },
   bottomCard: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     backgroundColor: Colors.sheet,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: Spacing.md,
     paddingTop: 6,
     shadowColor: '#1A1B2E',
@@ -1028,6 +1310,45 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#D1D5DB',
     marginBottom: 8,
+  },
+  bookingHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  bookingBadge: { width: 48, height: 48, borderRadius: 16, backgroundColor: Colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  fleetCategoryScroll: {
+    maxHeight: 66,
+    marginBottom: Spacing.sm,
+  },
+  fleetCategoryRow: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: 1,
+  },
+  fleetCategoryOption: {
+    width: 58,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  fleetCategoryOptionSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primarySoft,
+  },
+  fleetCategoryImage: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+  },
+  fleetCategoryLabel: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: FontWeights.medium,
+    color: Colors.textSecondary,
+  },
+  fleetCategoryLabelSelected: {
+    color: Colors.primary,
+    fontWeight: FontWeights.semibold,
   },
   bookingPrompt: {
     fontSize: 18,
@@ -1047,9 +1368,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderRadius: BorderRadius.lg,
-    paddingVertical: 8,
+    minHeight: 56,
+    paddingVertical: 10,
     paddingHorizontal: Spacing.sm,
-    marginBottom: 6,
+    marginBottom: 10,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },

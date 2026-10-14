@@ -34,3 +34,9 @@ yarn-debug.*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local settings and credentials must never enter the cloud build archive
+.env
+.env.*
+!.env.example
+android-service-account.json

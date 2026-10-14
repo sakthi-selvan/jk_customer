@@ -63,13 +63,15 @@ class ApiClient {
           connectivity.noteUnreachable();
         }
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        const isAuthEntry = /\/auth\/(send-otp|verify-otp|refresh)/.test(originalRequest?.url || '');
+        if (originalRequest && !isAuthEntry && error.response?.status === 401 && !originalRequest._retry) {
           if (originalRequest.url?.includes('/auth/refresh')) {
             await this.handleLogout();
             return Promise.reject(error);
           }
 
           if (this.isRefreshing) {
+            originalRequest._retry = true;
             return new Promise((resolve, reject) => {
               this.failedQueue.push({ resolve, reject });
             }).then((token) => {
@@ -88,10 +90,13 @@ class ApiClient {
             const response = await axios.post(
               `${API_CONFIG.BASE_URL}/api/auth/refresh`,
               { refresh_token: refreshToken },
-              { headers: { 'Content-Type': 'application/json' } }
+              { timeout: API_CONFIG.TIMEOUT, headers: { 'Content-Type': 'application/json' } }
             );
 
             const { access_token, refresh_token: newRefreshToken } = response.data;
+            if (typeof access_token !== 'string' || !access_token || typeof newRefreshToken !== 'string' || !newRefreshToken) {
+              throw new Error('Unable to renew your session. Please try again.');
+            }
             this.inMemoryToken = access_token;
             await storage.setItem('access_token', access_token);
             await storage.setItem('refresh_token', newRefreshToken);
@@ -104,7 +109,10 @@ class ApiClient {
           } catch (refreshError) {
             this.failedQueue.forEach(({ reject }) => reject(refreshError));
             this.failedQueue = [];
-            await this.handleLogout();
+            // A temporary outage must not erase a valid saved session.
+            const rejectedSession = axios.isAxiosError(refreshError) && [401, 403].includes(refreshError.response?.status || 0);
+            const missingSession = refreshError instanceof Error && refreshError.message === 'No refresh token';
+            if (rejectedSession || missingSession) await this.handleLogout();
             return Promise.reject(refreshError);
           } finally {
             this.isRefreshing = false;
@@ -133,7 +141,7 @@ class ApiClient {
     }
     if (this.logoutCallback) this.logoutCallback();
     try {
-      router.replace('/login');
+      router.replace('/(auth)/login');
     } catch {
       // ignore
     }

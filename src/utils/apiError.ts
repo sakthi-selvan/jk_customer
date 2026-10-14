@@ -46,6 +46,12 @@ export function formatApiDetail(detail: unknown, fallback = 'Something went wron
 }
 
 export function formatApiError(error: unknown, fallback = 'Something went wrong'): string {
-  const anyErr = error as { response?: { data?: { detail?: unknown } }; message?: unknown };
+  const anyErr = error as { code?: string; response?: { status?: number; data?: { detail?: unknown } }; message?: unknown };
+  if (anyErr?.code === 'ECONNABORTED' || anyErr?.code === 'ETIMEDOUT') {
+    return 'The request took too long. Check your connection and try again. If you were booking, check My Rides before trying again.';
+  }
+  if (anyErr?.code === 'ERR_NETWORK') return 'Unable to connect. Check your internet connection and try again.';
+  if ((anyErr?.response?.status ?? 0) >= 500) return 'Our service is temporarily unavailable. Please try again shortly.';
+  if (anyErr?.response?.status === 429) return 'Too many attempts. Please wait a moment before trying again.';
   return formatApiDetail(anyErr?.response?.data?.detail ?? anyErr?.message, fallback);
 }

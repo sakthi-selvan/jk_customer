@@ -9,7 +9,7 @@ let initialized = false;
 let tokenApplied = false;
 
 function isUsableToken(token: string | null | undefined): token is string {
-  return Boolean(token && token.length > 10 && !token.startsWith('@'));
+  return Boolean(token && token.length > 10 && token.startsWith('pk.'));
 }
 
 /**
@@ -27,15 +27,11 @@ export function initMapbox(): { ok: boolean; reason?: string } {
 function applyTokenSync(token: string): { ok: boolean; reason?: string } {
   try {
     // setAccessToken must run BEFORE any other Mapbox native call
-    void Mapbox.setAccessToken(token);
-    tokenApplied = true;
-    initialized = true;
-    // Telemetry touches Map internals and requires a token already set
-    try {
-      Mapbox.setTelemetryEnabled?.(false);
-    } catch {
-      // ignore — never crash the app for telemetry
-    }
+    void Mapbox.setAccessToken(token).then(() => {
+      tokenApplied = true;
+      initialized = true;
+      try { Mapbox.setTelemetryEnabled?.(false); } catch { /* optional */ }
+    }).catch(() => { tokenApplied = false; initialized = false; });
     return { ok: true };
   } catch (e) {
     console.warn('[Mapbox] setAccessToken failed', e);

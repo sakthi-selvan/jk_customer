@@ -35,6 +35,9 @@ interface FleetMapProps {
   showFilterChips?: boolean;
   /** Distance from top of map to filter chips (avoids overlapping header UI) */
   chipBarTop?: number;
+  cameraRevision?: number;
+  onRegionIsChanging?: (feature: any) => void;
+  onRegionDidChange?: (feature: any) => void;
 }
 
 /**
@@ -50,6 +53,9 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   womenOnly = false,
   showFilterChips = true,
   chipBarTop = 8,
+  cameraRevision = 0,
+  onRegionIsChanging,
+  onRegionDidChange,
 }) => {
   const cameraRef = useRef<Camera>(null);
   const [localFilter, setLocalFilter] = useState<FleetCategory>('all');
@@ -123,7 +129,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
       zoomLevel: zoom,
       animationDuration: 800,
     });
-  }, [latitude, longitude, zoom]);
+  }, [latitude, longitude, zoom, cameraRevision]);
 
   return (
     <View style={styles.container}>
@@ -136,6 +142,8 @@ export const FleetMap: React.FC<FleetMapProps> = ({
         attributionEnabled
         logoEnabled={false}
         surfaceView={MAP_SURFACE_VIEW}
+        onRegionIsChanging={onRegionIsChanging}
+        onRegionDidChange={onRegionDidChange}
         onDidFailLoadingMap={() =>
           setMapError('Map failed to load. Check network or reinstall the latest preview.')
         }

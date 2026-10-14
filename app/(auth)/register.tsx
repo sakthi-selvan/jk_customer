@@ -14,7 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/store/authStore';
 import { Button } from '../../src/components/common/Button';
 import { Input } from '../../src/components/common/Input';
-import { Card } from '../../src/components/common/Card';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../src/constants/theme';
 import { validateEmail, validateName } from '../../src/utils/validation';
 
@@ -63,30 +62,40 @@ export default function CompleteProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.progressRow}>
-            <View style={[styles.progressDot, styles.progressDotActive]} />
-            <View style={styles.progressLine} />
-            <View style={styles.progressDot} />
-          </View>
-          <Text style={styles.stepLabel}>Step 1 of 2</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            <View style={styles.topBar}>
+              <View style={styles.logoFrame}>
+                <Image
+                  source={require('../../assets/images/splash.png')}
+                  style={styles.logo}
+                  resizeMode="cover"
+                  accessibilityLabel="JK Taxi"
+                />
+              </View>
+              <View style={styles.stepCopy}>
+                <Text style={styles.stepEyebrow}>CREATE YOUR ACCOUNT</Text>
+                <Text style={styles.stepLabel}>Step 1 of 2</Text>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={styles.progressTrackFill} />
+              </View>
+            </View>
 
-          <View style={styles.header}>
-            <Image
-              source={require('../../assets/images/jk_taxi_logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.title}>About you</Text>
-            <Text style={styles.subtitle}>A few details so we can personalize your rides</Text>
-          </View>
+            <View style={styles.header}>
+              <Text style={styles.title}>About you</Text>
+              <Text style={styles.subtitle}>Add a few details to set up your rider profile.</Text>
+            </View>
 
-          <Card elevated style={styles.formCard}>
             <Input
               label="Full Name"
               placeholder="Enter your full name"
@@ -114,6 +123,7 @@ export default function CompleteProfileScreen() {
               onChangeText={setAge}
               keyboardType="number-pad"
               maxLength={3}
+              returnKeyType="done"
               icon="calendar-outline"
               error={errors.age}
             />
@@ -126,6 +136,8 @@ export default function CompleteProfileScreen() {
                   style={[styles.genderChip, gender === g && styles.genderChipActive]}
                   onPress={() => setGender(g)}
                   activeOpacity={0.85}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: gender === g }}
                 >
                   <Text style={[styles.genderChipText, gender === g && styles.genderChipTextActive]}>
                     {g}
@@ -141,7 +153,7 @@ export default function CompleteProfileScreen() {
               fullWidth
               style={styles.submitButton}
             />
-          </Card>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -151,55 +163,76 @@ export default function CompleteProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   keyboardView: { flex: 1 },
-  scrollContent: { flexGrow: 1, padding: Spacing.lg },
-  progressRow: {
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 460,
+    alignSelf: 'center',
+  },
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.lg,
   },
-  progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#D1D5DB',
+  logoFrame: {
+    width: 58,
+    height: 58,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: Colors.primary,
   },
-  progressDotActive: { backgroundColor: Colors.primary },
-  progressLine: {
-    width: 48,
-    height: 2,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 8,
+  logo: { width: '100%', height: '100%' },
+  stepCopy: {
+    marginLeft: Spacing.md,
+  },
+  stepEyebrow: {
+    color: Colors.primary,
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.bold,
+    marginBottom: 3,
   },
   stepLabel: {
-    textAlign: 'center',
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
-    fontWeight: FontWeights.semibold,
-    marginBottom: Spacing.md,
+    fontWeight: FontWeights.medium,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    marginLeft: Spacing.md,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    overflow: 'hidden',
+  },
+  progressTrackFill: {
+    width: '50%',
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: Colors.primary,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
-  logo: { width: '78%', maxWidth: 280, aspectRatio: 1024 / 469, marginBottom: Spacing.sm },
   title: {
-    fontSize: FontSizes.xxxl,
+    fontSize: FontSizes.xxl,
     fontWeight: FontWeights.bold,
-    color: Colors.text,
+    color: Colors.ink,
     marginBottom: Spacing.xs,
   },
   subtitle: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.sm,
+    lineHeight: 20,
     color: Colors.textSecondary,
-    textAlign: 'center',
   },
-  formCard: { marginBottom: Spacing.lg },
   fieldLabel: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
-    color: Colors.text,
+    color: Colors.ink,
     marginBottom: Spacing.sm,
   },
   genderRow: {
@@ -209,21 +242,24 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   genderChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    width: '48%',
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
   genderChipActive: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.primary + '18',
+    backgroundColor: 'rgba(44, 2, 103, 0.06)',
   },
   genderChipText: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
     color: Colors.textSecondary,
+    textAlign: 'center',
   },
   genderChipTextActive: { color: Colors.primary },
   errorText: {
@@ -231,5 +267,5 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     marginBottom: Spacing.sm,
   },
-  submitButton: { marginTop: Spacing.md },
+  submitButton: { marginTop: Spacing.md, marginBottom: Spacing.sm },
 });

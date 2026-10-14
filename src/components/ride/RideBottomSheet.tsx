@@ -9,7 +9,6 @@ import {
   Linking,
   Animated,
   Dimensions,
-  Platform,
   PanResponder,
   Modal,
   TextInput,
@@ -105,7 +104,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
   const pickupAddress = ride.pickup_location?.trim() || 'Pickup location';
   const dropoffAddress = ride.dropoff_location?.trim() || '';
 
-  const initialHeight = ride.status === 'pending' ? 380 : MIN_HEIGHT;
+  const initialHeight = ride.status === 'pending' ? Math.min(MAX_HEIGHT, 440) : MIN_HEIGHT;
   const sheetHeight = useRef(new Animated.Value(initialHeight)).current;
   const lastHeight = useRef(initialHeight);
   const searchPulse = useRef(new Animated.Value(0)).current;
@@ -306,9 +305,9 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
 
   const getStatusConfig = () => {
     switch (ride.status) {
-      case 'pending': return { title: 'Searching for Captains', color: '#F59E0B', icon: 'search' };
+      case 'pending': return { title: 'Finding a captain', color: Colors.primary, icon: 'search' };
       case 'accepted': return { title: 'Captain Assigned', color: '#3B82F6', icon: 'checkmark-circle' };
-      case 'started': return { title: 'Trip In Progress', color: '#8B5CF6', icon: 'car-sport' };
+      case 'started': return { title: 'Trip In Progress', color: Colors.primary, icon: 'car-sport' };
       case 'completed': return { title: 'Trip Completed', color: '#10B981', icon: 'checkmark-done-circle' };
       case 'cancelled': return { title: 'Trip Cancelled', color: '#EF4444', icon: 'close-circle' };
       default: return { title: 'Unknown', color: '#999', icon: 'help' };
@@ -400,8 +399,8 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
                   <Text style={styles.pendingTitle}>Finding your captain</Text>
                   <Text style={styles.pendingSubtitle}>
                     {nearbyCount > 0
-                      ? `${nearbyCount} nearby · usually takes a minute`
-                      : 'Matching you with the nearest captain'}
+                      ? `${nearbyCount} ${nearbyCount === 1 ? 'captain' : 'captains'} nearby · updates shown here`
+                      : 'Checking for available captains near your pickup'}
                   </Text>
                 </View>
               </View>
@@ -419,7 +418,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
                 </View>
                 <View style={styles.tripSummaryDivider} />
                 <View style={styles.tripSummaryItem}>
-                  <Text style={styles.tripSummaryLabel}>Est. time</Text>
+                  <Text style={styles.tripSummaryLabel}>Est. trip</Text>
                   <Text style={[styles.tripSummaryValue, styles.tripSummaryTime]}>{timeDisplay}</Text>
                 </View>
               </View>
@@ -476,7 +475,7 @@ export const RideBottomSheet: React.FC<RideBottomSheetProps> = ({
                 </View>
               )}
               {ride.status === 'started' && (
-                <View style={[styles.arrivalBanner, { backgroundColor: '#F3E8FF' }]}>
+                  <View style={[styles.arrivalBanner, { backgroundColor: Colors.primarySoft }]}>
                   <Ionicons name="car-sport" size={16} color={Colors.primary} />
                   <Text style={styles.arrivalText}>{timeDisplay} to destination</Text>
                 </View>
@@ -694,7 +693,7 @@ const styles = StyleSheet.create({
   },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexShrink: 1 },
   statusText: { color: '#FFF', fontSize: FontSizes.sm, fontWeight: FontWeights.bold, marginLeft: 6 },
-  etaBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3E8FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  etaBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primarySoft, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   etaText: { fontSize: FontSizes.xs, fontWeight: FontWeights.bold, color: Colors.primary, marginLeft: 4 },
 
   // Pending — compact search hero
@@ -703,54 +702,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.md,
-    gap: 12,
+    gap: Spacing.md,
   },
   searchCopy: { flex: 1 },
   radarWrap: {
-    width: 72,
-    height: 72,
+    width: 80,
+    height: 80,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radarRing: {
     position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 1.5,
     borderColor: Colors.primary,
     backgroundColor: Colors.primary + '10',
   },
   pulseCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3E8FF',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: Colors.primary + '40',
   },
   pendingTitle: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
-    color: '#111',
+    color: Colors.ink,
   },
   pendingSubtitle: {
-    fontSize: FontSizes.sm,
-    color: '#666',
-    marginTop: 4,
+    fontSize: FontSizes.xs,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
     lineHeight: 18,
   },
   tripSummary: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 14,
+    backgroundColor: Colors.primarySoft,
+    borderRadius: BorderRadius.md,
     paddingVertical: 14,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: '#EEF0F4',
+    borderColor: Colors.border,
   },
   tripSummaryItem: { flex: 1, alignItems: 'center' },
   tripSummaryLabel: {
@@ -822,7 +821,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 6,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: Colors.primarySoft,
     borderWidth: 1,
     borderColor: Colors.primary + '55',
     paddingHorizontal: 10,
@@ -858,7 +857,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  otpBox: { backgroundColor: '#F3E8FF', borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed' },
+  otpBox: { backgroundColor: Colors.primarySoft, borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed' },
   otpLabel: { fontSize: FontSizes.xs, color: Colors.primary, fontWeight: FontWeights.semibold, marginBottom: 4 },
   otpValue: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: Colors.primary, letterSpacing: 2 },
   fareBox: { backgroundColor: '#E8F5E9' },
@@ -890,7 +889,7 @@ const styles = StyleSheet.create({
   contactBtn: { backgroundColor: '#DCFCE7', borderWidth: 1, borderColor: '#86EFAC' },
   contactBtnText: { color: '#166534', fontSize: FontSizes.sm, fontWeight: FontWeights.bold },
   sosBtn: { backgroundColor: '#EF4444' },
-  shareBtn: { backgroundColor: '#F3E8FF', borderWidth: 1, borderColor: Colors.primary },
+  shareBtn: { backgroundColor: Colors.primarySoft, borderWidth: 1, borderColor: Colors.primary },
   shareBtnText: { color: Colors.primary, fontWeight: '700' as const, fontSize: FontSizes.sm },
   sosBtnText: { color: '#FFF', fontSize: FontSizes.sm, fontWeight: FontWeights.bold },
   cancelBtn: { backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#EF4444' },
@@ -901,7 +900,7 @@ const styles = StyleSheet.create({
   cancelModalContent: { backgroundColor: '#FFF', borderRadius: 16, padding: Spacing.lg, width: '100%', maxHeight: '80%' },
   cancelModalTitle: { fontSize: FontSizes.lg, fontWeight: FontWeights.bold, color: '#000', marginBottom: Spacing.md, textAlign: 'center' },
   cancelReasonOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: Spacing.sm, borderRadius: 10, marginBottom: 6, gap: 10 },
-  cancelReasonSelected: { backgroundColor: '#F3E8FF' },
+  cancelReasonSelected: { backgroundColor: Colors.primarySoft },
   cancelReasonText: { fontSize: FontSizes.md, color: '#333', flex: 1 },
   cancelReasonInput: { backgroundColor: '#F5F5F5', borderRadius: 10, padding: Spacing.md, fontSize: FontSizes.md, color: '#000', minHeight: 60, textAlignVertical: 'top', marginTop: 4, marginBottom: 8, borderWidth: 1, borderColor: '#E0E0E0' },
   cancelModalActions: { flexDirection: 'row', gap: 10, marginTop: Spacing.md },

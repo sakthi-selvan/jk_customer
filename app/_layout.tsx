@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, usePathname, type ErrorBoundaryProps } from 'expo-router';
+import { RecoveryScreen } from '../src/components/common/RecoveryScreen';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
@@ -13,6 +14,10 @@ import { initMapbox } from '../src/config/initMapbox';
 export const unstable_settings = {
   initialRouteName: '(auth)/login',
 };
+
+export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+  return <RecoveryScreen retry={retry} />;
+}
 
 // Mapbox token must be set before any MapView mounts (avoids blank black maps).
 initMapbox();
@@ -26,6 +31,7 @@ try {
 
 export default function RootLayout() {
   const { isAuthenticated, isInitializing, pendingWelcome, loadUser } = useAuthStore();
+  const pathname = usePathname();
 
   useEffect(() => {
     loadUser();
@@ -79,7 +85,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ freezeOnBlur: true }} />
           <Stack.Screen name="rides" />
           <Stack.Screen name="profile" />
-          <Stack.Screen name="book-ride" />
+          <Stack.Screen name="book-ride" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="book-ride-map" />
           <Stack.Screen name="book-ride-enhanced" />
           <Stack.Screen name="book-ride-complete" />
@@ -93,7 +99,7 @@ export default function RootLayout() {
           <Stack.Screen name="ride-ui-preview" />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
-        <StatusBar style="dark" translucent={true} />
+        <StatusBar style={pathname === '/' ? 'light' : 'dark'} translucent={true} />
       </View>
     </ThemeProvider>
   );

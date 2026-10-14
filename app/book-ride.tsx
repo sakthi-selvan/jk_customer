@@ -27,7 +27,7 @@ import { MAPBOX_ACCESS_TOKEN } from '../src/config/mapbox-config';
 import { serviceAreaError } from '../src/utils/serviceArea';
 
 const TRIP_TYPES = [
-  { type: TripType.ONE_WAY, label: 'One Way', icon: 'arrow-forward' },
+  { type: TripType.ONE_WAY, label: 'Local', icon: 'arrow-forward' },
   { type: TripType.ROUND_TRIP, label: 'Round Trip', icon: 'swap-horizontal' },
   { type: TripType.RENTAL, label: 'Rental', icon: 'time' },
   { type: TripType.OUTSTATION, label: 'Outstation', icon: 'car-sport' },
@@ -114,6 +114,7 @@ export default function BookRideScreen() {
   // UI state
   const [showOptions, setShowOptions] = useState(false);
   const [loading, setLoading] = useState(false);
+  const bookingInFlight = useRef(false);
   const [recentDropoffs, setRecentDropoffs] = useState<LocationResult[]>([]);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlaces>({});
 
@@ -395,6 +396,17 @@ export default function BookRideScreen() {
     }
   };
 
+  const handleVehicleSelection = (vehicleType: VehicleCategory) => {
+    if (String(vehicleType) === 'bike') {
+      Alert.alert(
+        'Bike is unavailable',
+        'Currently this service is unavailable. Please choose one of the other services.'
+      );
+      return;
+    }
+    setSelectedVehicle(vehicleType);
+  };
+
   const fetchFareBreakdown = async () => {
     if (!pickupLocation || !dropoffLocation) return;
     const vehicle =
@@ -429,6 +441,7 @@ export default function BookRideScreen() {
   };
 
   const handleBookRide = async () => {
+    if (bookingInFlight.current) return;
     if (!pickupLocation || !dropoffLocation) {
       Alert.alert('Missing Info', 'Please select pickup and dropoff locations');
       return;
@@ -445,7 +458,21 @@ export default function BookRideScreen() {
       return;
     }
 
+    let scheduledDatetime: string | undefined;
+    if (!rideNow) {
+      const parsed = new Date(`${scheduledDate}T${scheduledTime}:00`);
+      if (!scheduledDate || !scheduledTime || !Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
+        Alert.alert('Choose a future time', 'Enter a valid pickup date and time in the future.');
+        return;
+      }
+      scheduledDatetime = parsed.toISOString();
+    }
+    if (!bookingForSelf && (!passengerName.trim() || !passengerPhone.trim())) {
+      Alert.alert('Passenger details required', 'Enter the passenger name and phone number.');
+      return;
+    }
     try {
+      bookingInFlight.current = true;
       setLoading(true);
 
       const bookingData: any = {
@@ -458,8 +485,7 @@ export default function BookRideScreen() {
         dropoff_lat: dropoffLocation.latitude,
         dropoff_lng: dropoffLocation.longitude,
         is_scheduled: !rideNow,
-        scheduled_datetime: (!rideNow && scheduledDate && scheduledTime)
-          ? `${scheduledDate}T${scheduledTime}:00` : undefined,
+        scheduled_datetime: scheduledDatetime,
         booking_for_self: bookingForSelf,
         passenger_name: bookingForSelf ? undefined : passengerName,
         passenger_phone: bookingForSelf ? undefined : passengerPhone,
@@ -481,6 +507,7 @@ export default function BookRideScreen() {
     } catch (error: any) {
       Alert.alert('Booking Failed', formatApiError(error, 'Failed to book ride'));
     } finally {
+      bookingInFlight.current = false;
       setLoading(false);
     }
   };
@@ -518,27 +545,11 @@ export default function BookRideScreen() {
         </View>
       </View>
 
-      {/* Pick/Drop on Map buttons */}
-      <View style={styles.pickOnMapContainer}>
-        <TouchableOpacity
-          style={styles.pickOnMapBtn}
-          onPress={() => {
-            router.push({
-              pathname: '/pick-on-map',
-              params: {
-                type: 'pickup',
-                lat: pickupLocation?.latitude.toString(),
-                lng: pickupLocation?.longitude.toString(),
-              }
-            });
-          }}
-        >
-          <Ionicons name="map" size={18} color={Colors.primary} />
-          <Text style={styles.pickOnMapText}>Pick Pickup on Map</Text>
-        </TouchableOpacity>
-
-        {pickupLocation && (
+      {pickupLocation && (
+        <View style={styles.pickOnMapContainer}>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Choose dropoff on map"
             style={[styles.pickOnMapBtn, { backgroundColor: '#FFF5F5', borderColor: '#F44336' + '30' }]}
             onPress={() => {
               router.push({
@@ -552,10 +563,10 @@ export default function BookRideScreen() {
             }}
           >
             <Ionicons name="location" size={18} color="#F44336" />
-            <Text style={[styles.pickOnMapText, { color: '#F44336' }]}>Pick Drop on Map</Text>
+            <Text style={[styles.pickOnMapText, { color: '#F44336' }]}>Map</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
 
       {!dropoffLocation && (
         <>
@@ -661,7 +672,7 @@ export default function BookRideScreen() {
               <TouchableOpacity
                 style={styles.vehicleCardHeader}
                 onPress={() => {
-                  setSelectedVehicle(v.type as VehicleCategory);
+                  handleVehicleSelection(v.type as VehicleCategory);
                   if (tripType !== TripType.RENTAL) return;
                 }}
                 activeOpacity={0.85}
@@ -1099,7 +1110,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   rentalPkgRowActive: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: Colors.primarySoft,
     borderColor: Colors.primary,
   },
   rentalPkgLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },

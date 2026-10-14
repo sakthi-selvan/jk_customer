@@ -171,7 +171,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     finishWelcome: () => {
-      storage.removeItem('pending_welcome');
+      void storage.removeItem('pending_welcome').catch(() => undefined);
       set({ pendingWelcome: false });
     },
 
@@ -179,7 +179,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
       clearApiToken();
       resetMapboxRuntimeToken();
       await clearCachedMapboxToken();
-      await storage.multiRemove(['access_token', 'refresh_token', 'user', 'pending_welcome']);
+      try {
+        await storage.multiRemove(['access_token', 'refresh_token', 'user', 'pending_welcome']);
+      } catch {
+        // Clear the visible session even if device storage is temporarily unavailable.
+      } finally {
       set({
         user: null,
         accessToken: null,
@@ -191,6 +195,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         pendingWelcome: false,
         signupDraft: null,
       });
+      }
     },
 
     loadUser: async () => {
@@ -203,7 +208,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (token && userStr) {
           const user = JSON.parse(userStr);
           setApiToken(token);
-          await ensureMapboxTokenAfterAuth();
           set({
             user,
             accessToken: token,
@@ -211,6 +215,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
             pendingWelcome,
             isInitializing: false,
           });
+          // Cached/environment map tokens are applied by this helper before its network call.
+          // An unavailable map service must not hold the launch screen open.
+          void ensureMapboxTokenAfterAuth().catch(() => undefined);
         } else {
           set({ isInitializing: false });
         }

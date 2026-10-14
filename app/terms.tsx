@@ -33,7 +33,7 @@ To the fullest extent permitted by law, JK Taxi’s liability for any claim rela
 We may update these Terms. Continued use after changes means you accept the updated Terms.
 
 9. Contact
-Questions about these Terms: legal@jktaxi.app (demo address).`;
+Questions about these Terms: legal@jktaxi.app.`;
 
 const PRIVACY = `Last updated: August 1, 2026
 
@@ -50,19 +50,19 @@ To match you with captains, calculate fares, process payments, improve safety, p
 We share trip details with the assigned captain, payment processors as needed, and law enforcement when legally required. We do not sell personal data.
 
 4. Location
-Precise location is used during active booking and trips. You can limit some sharing in Privacy & Safety settings.
+Precise location is used during active booking and trips. You can manage location permissions in your device settings.
 
 5. Retention
 Trip history is kept while your account is active and as required for legal/accounting purposes. You may request deletion via Contact Support.
 
 6. Your Choices
-Update profile data anytime. Control notification preferences. Request a data export or account deletion (demo flows available in-app).
+Update profile data anytime. Control notification preferences. Request a data export or account deletion by emailing support@jktaxi.app.
 
 7. Security
 We use industry-standard safeguards. No method of transmission is 100% secure; please protect your OTP and device.
 
 8. Contact
-privacy@jktaxi.app (demo address)`;
+privacy@jktaxi.app`;
 
 export default function TermsScreen() {
   const [tab, setTab] = useState<Tab>('terms');

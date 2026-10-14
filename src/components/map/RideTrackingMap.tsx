@@ -474,7 +474,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
             title="Pickup"
           >
             <View style={[styles.marker, styles.pickupMarker]}>
-              <Text style={styles.markerText}>P</Text>
+              <Ionicons name="location-sharp" size={24} color="#0F9D58" />
             </View>
           </Mapbox.PointAnnotation>
         )}
@@ -486,7 +486,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
             title="Dropoff"
           >
             <View style={[styles.marker, styles.dropoffMarker]}>
-              <Text style={styles.markerText}>D</Text>
+              <Ionicons name="location-sharp" size={24} color="#EA4335" />
             </View>
           </Mapbox.PointAnnotation>
         )}
@@ -498,7 +498,7 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
             title="Destination"
           >
             <View style={[styles.marker, styles.dropoffHint]}>
-              <Text style={styles.markerText}>D</Text>
+              <Ionicons name="location-sharp" size={24} color="#EA4335" />
             </View>
           </Mapbox.PointAnnotation>
         )}
@@ -547,9 +547,11 @@ export const RideTrackingMap: React.FC<RideTrackingMapProps> = ({
         </View>
       ) : null}
 
-      <View style={styles.phaseBanner}>
-        <Text style={styles.phaseText}>{phaseLabel}</Text>
-      </View>
+      {rideStatus !== 'pending' && (
+        <View style={styles.phaseBanner}>
+          <Text style={styles.phaseText}>{phaseLabel}</Text>
+        </View>
+      )}
 
       {routeData && (
         <View style={styles.etaOverlay}>
@@ -585,15 +587,15 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.medium,
   },
   marker: {
-    width: 30, height: 30, borderRadius: 15,
+    width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFF',
     borderWidth: 2, borderColor: '#FFF',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.24, shadowRadius: 5, elevation: 5,
   },
-  pickupMarker: { backgroundColor: '#0F9D58' },
-  dropoffMarker: { backgroundColor: '#EA4335' },
-  dropoffHint: { backgroundColor: '#EA4335', opacity: 0.55, transform: [{ scale: 0.85 }] },
-  markerText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  pickupMarker: { borderColor: '#0F9D58' },
+  dropoffMarker: { borderColor: '#EA4335' },
+  dropoffHint: { borderColor: '#EA4335', opacity: 0.55, transform: [{ scale: 0.85 }] },
   driverMarker: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#1A73E8',

@@ -6,7 +6,7 @@ const LOCATION_TRACKING = 'background-location-tracking';
 export interface LocationUpdate {
   latitude: number;
   longitude: number;
-  accuracy: number;
+  accuracy: number | null;
   timestamp: number;
 }
 
@@ -21,7 +21,7 @@ TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
 
   if (data) {
     const { locations } = data as any;
-    const location = locations[0];
+    const location = Array.isArray(locations) ? locations[0] : null;
 
     if (location && locationCallback) {
       const update: LocationUpdate = {

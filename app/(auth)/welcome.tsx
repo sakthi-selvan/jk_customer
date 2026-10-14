@@ -19,35 +19,38 @@ export default function WelcomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Image
-          source={require('../../assets/images/jk_taxi_logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-
-        <View style={styles.badge}>
-          <Ionicons name="checkmark-circle" size={22} color={Colors.success || '#10B981'} />
-          <Text style={styles.badgeText}>You're all set</Text>
+        <View style={styles.brandPanel}>
+          <Image
+            source={require('../../assets/images/splash.png')}
+            style={styles.logo}
+            resizeMode="cover"
+            accessibilityLabel="JK Taxi"
+          />
         </View>
 
-        <Text style={styles.title}>Welcome, {firstName}!</Text>
-        <Text style={styles.subtitle}>
-          Book cars, autos and bikes across Tiruppur with clear fares and verified drivers.
-        </Text>
+        <View style={styles.successMark}>
+          <Ionicons name="checkmark" size={26} color={Colors.white} />
+        </View>
+
+        <Text style={styles.eyebrow}>ACCOUNT READY</Text>
+        <Text style={styles.title}>Welcome, {firstName}.</Text>
+        <Text style={styles.subtitle}>Your JK Taxi account is ready when you are.</Text>
 
         <View style={styles.perks}>
-          {[
-            { icon: 'navigate-outline' as const, text: 'Live tracking on every ride' },
-            { icon: 'shield-checkmark-outline' as const, text: 'OTP-protected trips' },
-            { icon: 'flash-outline' as const, text: 'Book in seconds' },
-          ].map((p) => (
-            <View key={p.text} style={styles.perkRow}>
-              <View style={styles.perkIcon}>
-                <Ionicons name={p.icon} size={18} color={Colors.primary} />
-              </View>
-              <Text style={styles.perkText}>{p.text}</Text>
-            </View>
-          ))}
+          <View style={styles.perkRow}>
+            <Ionicons name="navigate-outline" size={18} color={Colors.primary} />
+            <Text style={styles.perkText}>Follow your ride live</Text>
+          </View>
+          <View style={styles.perkDivider} />
+          <View style={styles.perkRow}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={Colors.primary} />
+            <Text style={styles.perkText}>Trip updates and driver details</Text>
+          </View>
+          <View style={styles.perkDivider} />
+          <View style={styles.perkRow}>
+            <Ionicons name="car-outline" size={18} color={Colors.primary} />
+            <Text style={styles.perkText}>Choose a ride that fits</Text>
+          </View>
         </View>
       </View>
 
@@ -68,55 +71,70 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: Spacing.xl,
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    paddingBottom: Spacing.md,
   },
-  logo: { width: '82%', maxWidth: 320, aspectRatio: 1024 / 469, marginBottom: Spacing.lg },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  brandPanel: {
+    width: 144,
+    height: 144,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: Colors.primary,
+    marginBottom: Spacing.xl,
+  },
+  logo: { width: '100%', height: '100%' },
+  successMark: {
+    width: 48,
+    height: 48,
     borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.success,
     marginBottom: Spacing.md,
   },
-  badgeText: {
-    fontSize: FontSizes.sm,
+  eyebrow: {
+    fontSize: FontSizes.xs,
     fontWeight: FontWeights.bold,
-    color: '#059669',
+    color: Colors.primary,
+    marginBottom: Spacing.xs,
   },
   title: {
-    fontSize: 32,
+    fontSize: FontSizes.xxxl,
     fontWeight: FontWeights.bold,
-    color: Colors.text,
+    color: Colors.ink,
     textAlign: 'center',
     marginBottom: Spacing.sm,
-    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: FontSizes.md,
     color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
-    maxWidth: 320,
+    lineHeight: 22,
+    maxWidth: 300,
     marginBottom: Spacing.xl,
   },
-  perks: { width: '100%', maxWidth: 340, gap: 12 },
-  perkRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  perkIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Colors.primary + '14',
+  perks: {
+    width: '100%',
+    maxWidth: 340,
+    paddingHorizontal: Spacing.md,
+  },
+  perkRow: {
+    minHeight: 44,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.md,
+  },
+  perkDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
   },
   perkText: {
     flex: 1,
-    fontSize: FontSizes.md,
-    fontWeight: FontWeights.semibold,
-    color: Colors.text,
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+    color: Colors.ink,
   },
-  footer: { paddingBottom: Spacing.lg },
+  footer: { width: '100%', maxWidth: 440, alignSelf: 'center', paddingBottom: Spacing.lg },
 });

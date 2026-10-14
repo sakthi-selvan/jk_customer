@@ -1,9 +1,11 @@
+import { initMapbox, mapboxTokenPresent } from '../../config/initMapbox';
+import { getMapboxAccessToken } from '../../config/mapbox-config';
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLES, ZOOM_LEVELS, ANIMATION_DURATION } from '../../config/mapbox-config';
 
-Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+initMapbox();
 
 interface Coordinate {
   latitude: number;
@@ -64,6 +66,8 @@ export const MapboxTaxiMap: React.FC<MapboxTaxiMapProps> = ({
       });
     }
   };
+
+  if (!mapboxTokenPresent()) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text>Map unavailable. Please try again shortly.</Text></View>;
 
   return (
     <Mapbox.MapView

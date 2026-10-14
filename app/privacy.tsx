@@ -1,137 +1,43 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { ScreenHeader } from '../src/components/common/ScreenHeader';
+import { useAuthStore } from '../src/store/authStore';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../src/constants/theme';
 
 export default function PrivacyScreen() {
-  const [shareLiveLocation, setShareLiveLocation] = useState(true);
-  const [saveTripHistory, setSaveTripHistory] = useState(true);
-  const [personalizedOffers, setPersonalizedOffers] = useState(false);
-  const [womenPriority, setWomenPriority] = useState(false);
-
+  const user = useAuthStore((state) => state.user);
+  const request = async (kind: 'Account deletion' | 'Data export') => {
+    const body = `Please process my ${kind.toLowerCase()} request.\nAccount phone: ${user?.phone || ''}\nAccount ID: ${user?.id || ''}`;
+    try {
+      await Linking.openURL(`mailto:support@jktaxi.app?subject=${encodeURIComponent(`JK Taxi: ${kind}`)}&body=${encodeURIComponent(body)}`);
+    } catch {
+      Alert.alert('Email support', 'Please send your request to support@jktaxi.app. No request has been sent from this app.');
+    }
+  };
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader title="Privacy & Safety" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionLabel}>Safety</Text>
         <View style={styles.card}>
-          <ToggleRow
-            icon="navigate-outline"
-            title="Share live location with captain"
-            subtitle="Only during an active trip"
-            value={shareLiveLocation}
-            onChange={setShareLiveLocation}
-          />
+          <ActionRow icon="shield-checkmark-outline" title="Emergency contact" subtitle="Update your trusted contact in your profile" onPress={() => router.push('/edit-profile')} />
           <View style={styles.divider} />
-          <ToggleRow
-            icon="woman-outline"
-            title="Prefer women captains"
-            subtitle="When available in your area"
-            value={womenPriority}
-            onChange={setWomenPriority}
-          />
-          <View style={styles.divider} />
-          <ActionRow
-            icon="shield-checkmark-outline"
-            title="Trusted contacts"
-            subtitle="People who can track your ride"
-            onPress={() =>
-              Alert.alert('Trusted contacts', 'Add up to 3 contacts who can see your live trip. Demo only.')
-            }
-          />
-          <View style={styles.divider} />
-          <ActionRow
-            icon="warning-outline"
-            title="Emergency SOS"
-            subtitle="Quick dial + share location"
-            onPress={() =>
-              Alert.alert('Emergency SOS', 'In a real trip, SOS would call your emergency contact and JK Taxi safety desk.')
-            }
-          />
+          <ActionRow icon="warning-outline" title="Ride safety" subtitle="Use SOS and trip sharing during an active ride" onPress={() => router.push('/')} />
         </View>
-
-        <Text style={styles.sectionLabel}>Data & privacy</Text>
+        <Text style={styles.sectionLabel}>Your data</Text>
         <View style={styles.card}>
-          <ToggleRow
-            icon="time-outline"
-            title="Save trip history"
-            subtitle="Keep past rides on this account"
-            value={saveTripHistory}
-            onChange={setSaveTripHistory}
-          />
+          <ActionRow icon="document-text-outline" title="Privacy policy" subtitle="Read how your information is used" onPress={() => router.push('/terms')} />
           <View style={styles.divider} />
-          <ToggleRow
-            icon="sparkles-outline"
-            title="Personalized recommendations"
-            subtitle="Use trip patterns for better suggestions"
-            value={personalizedOffers}
-            onChange={setPersonalizedOffers}
-          />
+          <ActionRow icon="download-outline" title="Request my data" subtitle="Send a data export request by email" onPress={() => { void request('Data export'); }} />
           <View style={styles.divider} />
-          <ActionRow
-            icon="download-outline"
-            title="Download my data"
-            subtitle="Request a copy of your account data"
-            onPress={() =>
-              Alert.alert('Request received', 'We will email a data export within 48 hours. (Demo — nothing is sent.)')
-            }
-          />
-          <View style={styles.divider} />
-          <ActionRow
-            icon="trash-outline"
-            title="Delete account"
-            subtitle="Permanently remove your JK Taxi profile"
-            destructive
-            onPress={() =>
-              Alert.alert(
-                'Delete account?',
-                'This is a demo. Your account will not be deleted. Contact support to delete for real.',
-                [{ text: 'Cancel', style: 'cancel' }, { text: 'OK' }]
-              )
-            }
-          />
+          <ActionRow icon="trash-outline" title="Request account deletion" subtitle="Send an account and data deletion request to support" destructive onPress={() => Alert.alert('Request account deletion', 'This opens an email draft. Send the email to request deletion of your account and associated data. Your account is not deleted immediately.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Open email', onPress: () => { void request('Account deletion'); } }])} />
         </View>
-
-        <Text style={styles.note}>
-          JK Taxi never sells your personal data. Location is used only to match captains and for safety
-          during trips. These toggles are stored on-device for this demo build.
-        </Text>
+        <Text style={styles.note}>Email requests are sent only when you send the draft in your email app. Support must confirm that the request has been processed.</Text>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function ToggleRow({
-  icon,
-  title,
-  subtitle,
-  value,
-  onChange,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <View style={styles.row}>
-      <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={20} color={Colors.primary} />
-      </View>
-      <View style={styles.rowText}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.rowSub}>{subtitle}</Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: '#D1D5DB', true: Colors.primaryMuted }}
-        thumbColor={value ? Colors.primary : '#F3F4F6'}
-      />
-    </View>
   );
 }
 

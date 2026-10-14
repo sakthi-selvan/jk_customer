@@ -82,7 +82,7 @@ export default function BookRideMapScreen() {
 
     try {
       setLoading(true);
-      const ride = await bookingEnhancedApi.createRide({
+      const ride = await bookingEnhancedApi.createBooking({
         trip_type: TripType.ONE_WAY,
         pickup_location: pickupLocation.address,
         pickup_lat: pickupLocation.latitude,
@@ -99,6 +99,7 @@ export default function BookRideMapScreen() {
           silent_ride: false,
           extra_luggage: false,
           wheelchair_support: false,
+          women_driver: false,
         },
       });
 
@@ -266,7 +267,7 @@ export default function BookRideMapScreen() {
                       <Text style={styles.vehiclePrice}>...</Text>
                     ) : fareBreakdown && selectedVehicle === vehicle.type ? (
                       <Text style={styles.vehiclePrice}>
-                        ₹{fareBreakdown.total_fare.toFixed(0)}
+                        ₹{fareBreakdown.total.toFixed(0)}
                       </Text>
                     ) : (
                       <Text style={styles.vehiclePrice}>-</Text>
@@ -286,19 +287,19 @@ export default function BookRideMapScreen() {
                 </View>
                 <View style={styles.fareRow}>
                   <Text style={styles.fareLabel}>
-                    Distance ({fareBreakdown.distance_km.toFixed(1)} km)
+                    Distance ({(fareBreakdown.distance_km ?? 0).toFixed(1)} km)
                   </Text>
                   <Text style={styles.fareValue}>₹{fareBreakdown.distance_fare.toFixed(0)}</Text>
                 </View>
-                {fareBreakdown.time_fare > 0 && (
+                {fareBreakdown.waiting_charges > 0 && (
                   <View style={styles.fareRow}>
                     <Text style={styles.fareLabel}>Time Charges</Text>
-                    <Text style={styles.fareValue}>₹{fareBreakdown.time_fare.toFixed(0)}</Text>
+                    <Text style={styles.fareValue}>₹{fareBreakdown.waiting_charges.toFixed(0)}</Text>
                   </View>
                 )}
                 <View style={[styles.fareRow, styles.fareTotal]}>
                   <Text style={styles.fareTotalLabel}>Total</Text>
-                  <Text style={styles.fareTotalValue}>₹{fareBreakdown.total_fare.toFixed(0)}</Text>
+                  <Text style={styles.fareTotalValue}>₹{fareBreakdown.total.toFixed(0)}</Text>
                 </View>
               </Card>
             )}

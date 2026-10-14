@@ -1,14 +1,12 @@
+import { initMapbox, mapboxTokenPresent } from '../../config/initMapbox';
+import { getMapboxAccessToken } from '../../config/mapbox-config';
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLES, MAP_PADDING, ANIMATION_DURATION } from '../../config/mapbox-config';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '../../constants/theme';
 
-try {
-  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
-} catch (error) {
-  console.error('Failed to set Mapbox token in MapboxRouteMapNew:', error);
-}
+initMapbox();
 
 interface Coordinate {
   latitude: number;
@@ -67,7 +65,7 @@ export const MapboxRouteMapNew: React.FC<MapboxRouteMapNewProps> = ({
         ],
       };
 
-      cameraRef.current.fitBounds(bounds.ne, bounds.sw, MAP_PADDING, ANIMATION_DURATION);
+      cameraRef.current.fitBounds(bounds.ne, bounds.sw, [MAP_PADDING.top, MAP_PADDING.right, MAP_PADDING.bottom, MAP_PADDING.left], ANIMATION_DURATION);
     }
   }, [routeData]);
 
@@ -78,7 +76,7 @@ export const MapboxRouteMapNew: React.FC<MapboxRouteMapNewProps> = ({
         `${pickup.longitude},${pickup.latitude};${dropoff.longitude},${dropoff.latitude}` +
         `?geometries=geojson&overview=full&steps=true` +
         `&annotations=congestion_numeric,distance,duration` +
-        `&access_token=${MAPBOX_ACCESS_TOKEN}`;
+        `&access_token=${getMapboxAccessToken()}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -140,6 +138,8 @@ export const MapboxRouteMapNew: React.FC<MapboxRouteMapNewProps> = ({
         properties: {},
       }
     : null;
+
+  if (!mapboxTokenPresent()) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text>Map unavailable. Please try again shortly.</Text></View>;
 
   return (
     <View style={styles.container}>

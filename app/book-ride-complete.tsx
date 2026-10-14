@@ -28,10 +28,10 @@ import { VehicleCategory, TripType, FareBreakdown } from '../src/types/enhanced'
 type BookingStep = 'location' | 'trip_type' | 'vehicle' | 'details' | 'confirm';
 
 const TRIP_TYPES = [
-  { id: TripType.ONE_WAY, name: 'One Way', icon: 'arrow-forward', color: '#4CAF50' },
+  { id: TripType.ONE_WAY, name: 'Local', icon: 'arrow-forward', color: '#4CAF50' },
   { id: TripType.ROUND_TRIP, name: 'Round Trip', icon: 'swap-horizontal', color: '#2196F3' },
   { id: TripType.RENTAL, name: 'Rental', icon: 'time', color: '#FF9800' },
-  { id: TripType.OUTSTATION, name: 'Outstation', icon: 'car-sport', color: '#9C27B0' },
+  { id: TripType.OUTSTATION, name: 'Outstation', icon: 'car-sport', color: Colors.primary },
 ];
 
 const VEHICLE_OPTIONS = [
@@ -96,6 +96,7 @@ export default function BookRideCompleteScreen() {
     silent_ride: false,
     extra_luggage: false,
     wheelchair_support: false,
+    women_driver: false,
   });
 
   useEffect(() => {
@@ -116,7 +117,7 @@ export default function BookRideCompleteScreen() {
         dropoff_lng: dropoffLocation.longitude,
         vehicle_category: selectedVehicle,
         trip_type: tripType,
-        scheduled_time: isScheduled ? scheduledDate.toISOString() : undefined,
+        scheduled_datetime: isScheduled ? scheduledDate.toISOString() : undefined,
       });
       setFareBreakdown(fare);
     } catch (error) {
@@ -170,7 +171,7 @@ export default function BookRideCompleteScreen() {
 
     try {
       setLoading(true);
-      const ride = await bookingEnhancedApi.createRide({
+      const ride = await bookingEnhancedApi.createBooking({
         trip_type: tripType,
         pickup_location: pickupLocation.address,
         pickup_lat: pickupLocation.latitude,
@@ -180,7 +181,7 @@ export default function BookRideCompleteScreen() {
         dropoff_lng: dropoffLocation.longitude,
         vehicle_category: selectedVehicle,
         is_scheduled: isScheduled,
-        scheduled_time: isScheduled ? scheduledDate.toISOString() : undefined,
+        scheduled_datetime: isScheduled ? scheduledDate.toISOString() : undefined,
         booking_for_self: bookingForSelf,
         passenger_name: bookingForSelf ? undefined : passengerName,
         passenger_phone: bookingForSelf ? undefined : passengerPhone,
@@ -368,7 +369,7 @@ export default function BookRideCompleteScreen() {
                   {isFareLoading ? (
                     <Text style={styles.vehiclePrice}>...</Text>
                   ) : showFare ? (
-                    <Text style={styles.vehiclePrice}>₹{fareBreakdown.total_fare.toFixed(0)}</Text>
+                    <Text style={styles.vehiclePrice}>₹{fareBreakdown.total.toFixed(0)}</Text>
                   ) : (
                     <Text style={styles.vehiclePrice}>-</Text>
                   )}
@@ -386,7 +387,7 @@ export default function BookRideCompleteScreen() {
               <Text style={styles.fareValue}>₹{fareBreakdown.base_fare.toFixed(0)}</Text>
             </View>
             <View style={styles.fareRow}>
-              <Text style={styles.fareLabel}>Distance ({fareBreakdown.distance_km.toFixed(1)} km)</Text>
+              <Text style={styles.fareLabel}>Distance ({(fareBreakdown.distance_km ?? 0).toFixed(1)} km)</Text>
               <Text style={styles.fareValue}>₹{fareBreakdown.distance_fare.toFixed(0)}</Text>
             </View>
             {fareBreakdown.platform_fee > 0 && (
@@ -403,7 +404,7 @@ export default function BookRideCompleteScreen() {
             )}
             <View style={[styles.fareRow, styles.fareTotalRow]}>
               <Text style={styles.fareTotalLabel}>Total Fare</Text>
-              <Text style={styles.fareTotalValue}>₹{fareBreakdown.total_fare.toFixed(0)}</Text>
+              <Text style={styles.fareTotalValue}>₹{fareBreakdown.total.toFixed(0)}</Text>
             </View>
           </Card>
         )}
@@ -656,7 +657,7 @@ export default function BookRideCompleteScreen() {
               <Ionicons name="cash" size={24} color={Colors.primary} />
               <View style={styles.summaryContent}>
                 <Text style={styles.totalFareLabel}>Total Fare</Text>
-                <Text style={styles.totalFareValue}>₹{fareBreakdown.total_fare.toFixed(0)}</Text>
+                <Text style={styles.totalFareValue}>₹{fareBreakdown.total.toFixed(0)}</Text>
               </View>
             </View>
           )}

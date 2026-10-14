@@ -1,11 +1,13 @@
+import { initMapbox, mapboxTokenPresent } from '../../config/initMapbox';
+import { getMapboxAccessToken } from '../../config/mapbox-config';
 import React, { useRef, useEffect, useState } from 'react';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN } from '../../config/mapbox-config';
 import { MAP_STYLES } from '../../config/mapbox-config';
 
 // Initialize Mapbox
-Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+initMapbox();
 
 interface Coordinate {
   latitude: number;
@@ -60,7 +62,7 @@ export const MapboxRouteMap: React.FC<MapboxRouteMapProps> = ({
     try {
       setLoading(true);
       const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${pickup.longitude},${pickup.latitude};${dropoff.longitude},${dropoff.latitude}?geometries=geojson&access_token=${MAPBOX_ACCESS_TOKEN}`
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${pickup.longitude},${pickup.latitude};${dropoff.longitude},${dropoff.latitude}?geometries=geojson&access_token=${getMapboxAccessToken()}`
       );
       const data = await response.json();
 
@@ -73,6 +75,8 @@ export const MapboxRouteMap: React.FC<MapboxRouteMapProps> = ({
       setLoading(false);
     }
   };
+
+  if (!mapboxTokenPresent()) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text>Map unavailable. Please try again shortly.</Text></View>;
 
   return (
     <View style={styles.container}>

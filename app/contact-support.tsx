@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,28 +25,25 @@ export default function ContactSupportScreen() {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  const submit = () => {
+  const openSupportEmail = async (subject: string, body = '') => {
+    try {
+      await Linking.openURL(`mailto:support@jktaxi.app?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    } catch {
+      Alert.alert('Email support', 'Please email support@jktaxi.app. No message has been sent from this app.');
+    }
+  };
+
+  const submit = async () => {
     if (message.trim().length < 10) {
       Alert.alert('Add more detail', 'Please describe your issue in at least a few sentences.');
       return;
     }
     setSending(true);
-    setTimeout(() => {
+    try {
+      await openSupportEmail(`JK Taxi: ${topic}`, `Trip ID: ${tripId.trim() || 'Not provided'}\n\n${message.trim()}`);
+    } finally {
       setSending(false);
-      Alert.alert(
-        'Ticket created',
-        `Thanks! Support ticket #JK-${Math.floor(10000 + Math.random() * 90000)} was created for “${topic}”.\n\nThis is a demo — no message was sent.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setMessage('');
-              setTripId('');
-            },
-          },
-        ]
-      );
-    }, 700);
+    }
   };
 
   return (
@@ -66,7 +64,7 @@ export default function ContactSupportScreen() {
             </View>
             <Text style={styles.heroTitle}>We’re here to help</Text>
             <Text style={styles.heroSub}>
-              Average reply time under 15 minutes · 6 AM – 11 PM IST
+              Average reply time under 15 minutes · Email support@jktaxi.app
             </Text>
           </View>
 
@@ -74,17 +72,17 @@ export default function ContactSupportScreen() {
             <QuickAction
               icon="call-outline"
               label="Call us"
-              onPress={() => Alert.alert('Call support', 'Demo number: +91 1800-000-JKTX')}
+              onPress={() => Alert.alert('Contact support', 'Please email support@jktaxi.app for assistance.')}
             />
             <QuickAction
-              icon="logo-whatsapp"
-              label="WhatsApp"
-              onPress={() => Alert.alert('WhatsApp', 'Demo chat link — not connected.')}
+              icon="globe-outline"
+              label="Website"
+              onPress={() => { void Linking.openURL('https://jktaxitamilnadu.com').catch(() => Alert.alert('Unable to open website', 'Please email support@jktaxi.app.')); }}
             />
             <QuickAction
               icon="mail-outline"
               label="Email"
-              onPress={() => Alert.alert('Email', 'support@jktaxi.app (demo)')}
+              onPress={() => { void openSupportEmail('JK Taxi support'); }}
             />
           </View>
 
@@ -128,7 +126,7 @@ export default function ContactSupportScreen() {
           </View>
 
           <Button
-            title={sending ? 'Sending…' : 'Submit ticket'}
+            title={sending ? 'Opening…' : 'Open email draft'}
             onPress={submit}
             loading={sending}
             disabled={sending}

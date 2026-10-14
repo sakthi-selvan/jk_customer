@@ -404,3 +404,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+LocationSearchInput.displayName = "LocationSearchInput";
